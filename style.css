@@ -1,0 +1,83 @@
+/* Pastikan body dan html mengambil tinggi penuh */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Mencegah scrollbar ganda pada body */
+    font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+    display: flex;
+}
+
+/* Sidebar: Harus memiliki tinggi 100vh agar bisa menampung list */
+#sidebar {
+    width: 350px;
+    height: 100vh;
+    background: #f8fafc;
+    border-right: 1px solid #ccc;
+    display: flex;
+    flex-direction: column; /* Mengatur header, search, dan list secara vertikal */
+    z-index: 1000;
+}
+
+/* Peta: Mengambil sisa ruang yang tersedia */
+#map {
+    flex-grow: 1; /* Ini kunci agar peta memenuhi sisa layar */
+    height: 100vh;
+}
+
+/* Header & Search */
+h2 {
+    padding: 20px;
+    margin: 0;
+    background: #2c3e50;
+    color: white;
+    text-align: center;
+    font-size: 1.2em;
+}
+
+.search-box {
+    padding: 15px;
+    background: #f9f9f9;
+    border-bottom: 1px solid #ddd;
+}
+
+#searchInput, #searchIdsls, #filterKategori {
+    width: 90%;
+    padding: 10px;
+    margin: 0 auto 10px auto; /* Center input */
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    display: block;
+    box-sizing: border-box;
+}
+
+/* List Item */
+#dataList {
+    overflow-y: auto; /* List akan scroll jika terlalu panjang */
+    flex-grow: 1;     /* List mengisi sisa ruang di sidebar */
+    padding: 10px;
+}
+
+.item {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.item:hover {
+    background: #f0f0f0;
+    border-color: #2980b9;
+}
+
+.item h4 {
+    margin: 0 0 5px 0;
+    color: #2980b9;
+}

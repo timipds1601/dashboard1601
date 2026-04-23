@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Sensus Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="sidebar">
+        <h2>Dashboard Tagging</h2>
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Cari nama usaha..." style="margin-bottom: 10px; width: 90%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+            <input list="idsls-list" id="searchIdsls" placeholder="Ketik/Cari IDSLS..." style="width: 90%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+            <datalist id="idsls-list"></datalist>
+        </div>
+        <div class="control-group">
+    <label>Filter Kategori:</label>
+    <select id="filterKategori">
+        <option value="Semua">-- Semua Kategori --</option>
+    </select>
+</div>
+        <div id="dataList"></div>
+    </div>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script type="module" src="app.js"></script>
+</body>
+</html>
