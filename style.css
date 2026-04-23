@@ -3,7 +3,7 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden; /* Mencegah scrollbar ganda pada body */
+    overflow: hidden;
     font-family: 'Segoe UI', sans-serif;
 }
 
@@ -11,24 +11,24 @@ body {
     display: flex;
 }
 
-/* Sidebar: Harus memiliki tinggi 100vh agar bisa menampung list */
+/* Sidebar */
 #sidebar {
     width: 350px;
     height: 100vh;
     background: #f8fafc;
     border-right: 1px solid #ccc;
     display: flex;
-    flex-direction: column; /* Mengatur header, search, dan list secara vertikal */
+    flex-direction: column;
     z-index: 1000;
 }
 
-/* Peta: Mengambil sisa ruang yang tersedia */
+/* Peta */
 #map {
-    flex-grow: 1; /* Ini kunci agar peta memenuhi sisa layar */
+    flex-grow: 1;
     height: 100vh;
 }
 
-/* Header & Search */
+/* Header */
 h2 {
     padding: 20px;
     margin: 0;
@@ -47,7 +47,7 @@ h2 {
 #searchInput, #searchIdsls, #filterKategori {
     width: 90%;
     padding: 10px;
-    margin: 0 auto 10px auto; /* Center input */
+    margin: 0 auto 10px auto;
     border: 1px solid #ccc;
     border-radius: 4px;
     display: block;
@@ -56,8 +56,8 @@ h2 {
 
 /* List Item */
 #dataList {
-    overflow-y: auto; /* List akan scroll jika terlalu panjang */
-    flex-grow: 1;     /* List mengisi sisa ruang di sidebar */
+    overflow-y: auto;
+    flex-grow: 1;
     padding: 10px;
 }
 
@@ -80,4 +80,146 @@ h2 {
 .item h4 {
     margin: 0 0 5px 0;
     color: #2980b9;
+}
+
+/* ========== STATISTIK WILAYAH ========== */
+.stats-filter-input {
+    width: calc(100% - 20px);
+    margin: 10px;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 12px;
+    box-sizing: border-box;
+    background: white;
+}
+
+.stats-filter-input:focus {
+    outline: none;
+    border-color: #2980b9;
+}
+
+.stats-wilayah {
+    margin: 0 10px 10px 10px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.stats-header {
+    background: #2c3e50;
+    color: white;
+    padding: 10px 15px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.stats-header:hover {
+    background: #1a252f;
+}
+
+.stats-content {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.stats-filter-info {
+    padding: 8px 12px;
+    background: #e3f2fd;
+    font-size: 11px;
+    color: #1565c0;
+    border-bottom: 1px solid #bbdef5;
+}
+
+.stats-no-data {
+    padding: 20px;
+    text-align: center;
+    color: #999;
+    font-size: 12px;
+}
+
+.stat-item {
+    padding: 12px;
+    border-bottom: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.stat-item:hover {
+    background: #f0f7ff;
+}
+
+.stat-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.stat-idsls {
+    font-family: monospace;
+    font-size: 11px;
+    font-weight: bold;
+    color: #2c3e50;
+    background: #ecf0f1;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.stat-total-badge {
+    font-size: 11px;
+    font-weight: bold;
+    background: #2980b9;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.stat-nmsls {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+
+.stat-location {
+    font-size: 10px;
+    color: #7f8c8d;
+    margin-bottom: 8px;
+}
+
+.stat-location span {
+    margin-right: 8px;
+}
+
+.stat-kategori {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 6px;
+}
+
+.stat-badge {
+    background: #ecf0f1;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    color: #2c3e50;
+}
+
+.stat-badge.stat-empty {
+    background: #fdebd0;
+    color: #e67e22;
+}
+
+.stat-more {
+    font-size: 10px;
+    color: #7f8c8d;
+    font-style: italic;
+    padding: 2px 5px;
 }
