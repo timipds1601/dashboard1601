@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
     <link rel="stylesheet" href="style.css">
+    <!-- Tambahkan Turf.js untuk perhitungan geometri -->
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 </head>
 <body>
     <div id="sidebar">
@@ -18,11 +20,11 @@
             <datalist id="idsls-list"></datalist>
         </div>
         <div class="control-group">
-    <label>Filter Kategori:</label>
-    <select id="filterKategori">
-        <option value="Semua">-- Semua Kategori --</option>
-    </select>
-</div>
+            <label>Filter Kategori:</label>
+            <select id="filterKategori">
+                <option value="Semua">-- Semua Kategori --</option>
+            </select>
+        </div>
         <div id="dataList"></div>
     </div>
     <div id="map"></div>
