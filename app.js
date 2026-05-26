@@ -48,6 +48,7 @@ function hitungStatistikWilayah() {
             nmkec: nmkec,
             nmdesa: nmdesa,
             total: 0,
+            menggunakanInternet: 0, // Jumlah yang menggunakan internet
             kategori: {}
         };
     });
@@ -55,12 +56,20 @@ function hitungStatistikWilayah() {
     // Hitung setiap titik usaha berada di wilayah mana
     allBusinessData.forEach(usaha => {
         const kategori = usaha.kategoriUsaha || "Lainnya";
+        // Gunakan isMenggunakanInternet (boolean)
+        const menggunakanInternet = usaha.isMenggunakanInternet === true || 
+                                     usaha.isMenggunakanInternet === "true" || 
+                                     usaha.isMenggunakanInternet === 1;
+        
         const point = turf.point([parseFloat(usaha.longitude), parseFloat(usaha.latitude)]);
         
         geojsonData.features.forEach(feature => {
             const idsls = feature.properties.idsls;
             if (idsls && turf.booleanPointInPolygon(point, feature)) {
                 statistikData[idsls].total++;
+                if (menggunakanInternet) {
+                    statistikData[idsls].menggunakanInternet++;
+                }
                 if (!statistikData[idsls].kategori[kategori]) {
                     statistikData[idsls].kategori[kategori] = 0;
                 }
@@ -69,7 +78,7 @@ function hitungStatistikWilayah() {
         });
     });
     
-    // Tampilkan statistik (tanpa filter)
+    // Tampilkan statistik
     tampilkanStatistik();
     
     // Update popup wilayah
@@ -128,6 +137,9 @@ function tampilkanStatistik() {
         html += `<div class="stats-no-data">Tidak ada wilayah yang ditemukan</div>`;
     } else {
         filteredData.forEach(wilayah => {
+            const persenInternet = wilayah.total > 0 ? ((wilayah.menggunakanInternet / wilayah.total) * 100).toFixed(1) : 0;
+            const tidakPakaiInternet = wilayah.total - wilayah.menggunakanInternet;
+            
             html += `
                 <div class="stat-item" onclick="zoomKeWilayah('${wilayah.idsls}')">
                     <div class="stat-header-row">
@@ -139,6 +151,23 @@ function tampilkanStatistik() {
                         <span>📍 ${wilayah.nmkec}</span>
                         <span> | ${wilayah.nmdesa}</span>
                     </div>
+                    <!-- Info Internet -->
+                    <div class="stat-internet">
+                        <div class="internet-row">
+                            <span class="internet-icon">🌐</span>
+                            <span class="internet-label">Menggunakan Internet:</span>
+                            <span class="internet-value yes">${wilayah.menggunakanInternet} usaha</span>
+                        </div>
+                        <div class="internet-row">
+                            <span class="internet-icon">📡</span>
+                            <span class="internet-label">Tidak menggunakan:</span>
+                            <span class="internet-value no">${tidakPakaiInternet} usaha</span>
+                        </div>
+                        <div class="internet-bar-container">
+                            <div class="internet-bar" style="width: ${persenInternet}%"></div>
+                        </div>
+                        <div class="internet-percent-text">${persenInternet}% menggunakan internet</div>
+                    </div>
                     <div class="stat-kategori">
             `;
             
@@ -146,7 +175,8 @@ function tampilkanStatistik() {
             const kategoriList = Object.entries(wilayah.kategori).sort((a,b) => b[1] - a[1]);
             if (kategoriList.length > 0) {
                 kategoriList.slice(0, 4).forEach(([kat, jml]) => {
-                    html += `<span class="stat-badge">${kat}: ${jml}</span>`;
+                    let shortKat = kat.length > 30 ? kat.substring(0, 27) + '...' : kat;
+                    html += `<span class="stat-badge" title="${kat}">${shortKat}: ${jml}</span>`;
                 });
                 if (kategoriList.length > 4) {
                     html += `<span class="stat-more">+${kategoriList.length - 4} lainnya</span>`;
@@ -164,6 +194,14 @@ function tampilkanStatistik() {
     
     html += `</div>`;
     statsDiv.innerHTML = html;
+    
+    // Inisialisasi resize setelah statsDiv dibuat
+    if (!window._resizeInitialized) {
+        setTimeout(() => {
+            initResizableStats();
+            window._resizeInitialized = true;
+        }, 100);
+    }
 }
 
 function filterStatistik(searchText) {
@@ -177,6 +215,9 @@ function updatePopupWilayah() {
             const data = statistikData[idsls];
             let kategoriHtml = '';
             
+            const tidakMenggunakanInternet = data.total - data.menggunakanInternet;
+            const persenInternet = data.total > 0 ? ((data.menggunakanInternet / data.total) * 100).toFixed(1) : 0;
+            
             if (Object.keys(data.kategori).length > 0) {
                 kategoriHtml = '<div style="margin-top:8px"><strong>📋 Kategori:</strong><br>';
                 for (const [kat, jml] of Object.entries(data.kategori)) {
@@ -188,12 +229,37 @@ function updatePopupWilayah() {
             }
             
             layer.bindPopup(`
-                <div style="min-width:200px">
-                    <b>🏢 ${data.nmsls}</b><br>
-                    <small>IDSLS: ${data.idsls}</small><br>
-                    <small>📍 Kec: ${data.nmkec} | Desa: ${data.nmdesa}</small><br>
+                <div style="min-width:280px">
+                    <div style="margin-bottom:8px">
+                        <b>🏢 ${data.nmsls}</b><br>
+                        <small>IDSLS: ${data.idsls}</small><br>
+                        <small>📍 Kec: ${data.nmkec} | Desa: ${data.nmdesa}</small>
+                    </div>
                     <hr style="margin:5px 0">
-                    <b>📊 Total Usaha: ${data.total}</b>
+                    <div style="margin-top:8px">
+                        <b>📊 Total Usaha: ${data.total}</b>
+                    </div>
+                    <div style="margin-top:8px; padding:8px; background: #f0f9ff; border-radius:6px; border-left: 3px solid #2196f3;">
+                        <div style="font-weight:bold; margin-bottom:5px;">🌐 Penggunaan Internet:</div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                            <span>✅ Menggunakan Internet:</span>
+                            <span style="font-weight:bold; color:#2e7d32;">${data.menggunakanInternet} usaha</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                            <span>❌ Tidak menggunakan:</span>
+                            <span style="font-weight:bold; color:#c62828;">${tidakMenggunakanInternet} usaha</span>
+                        </div>
+                        ${data.total > 0 ? `
+                            <div style="margin-top:5px;">
+                                <div style="height:6px; background:#e0e0e0; border-radius:3px; overflow:hidden;">
+                                    <div style="width:${persenInternet}%; height:100%; background:#4caf50;"></div>
+                                </div>
+                                <div style="text-align:center; margin-top:4px; font-size:10px; color:#666;">
+                                    ${persenInternet}% menggunakan internet
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
                     ${kategoriHtml}
                 </div>
             `);
@@ -227,9 +293,137 @@ window.zoomKeWilayah = function(idsls) {
         document.querySelectorAll('.stat-item').forEach(item => {
             item.style.background = '';
         });
-        event?.currentTarget?.style.setProperty('background', '#e3f2fd');
+        if (event && event.currentTarget) {
+            event.currentTarget.style.setProperty('background', '#e3f2fd');
+        }
     }
 };
+
+// --- FUNGSI RESIZEABLE STATISTIK PANEL ---
+function initResizableStats() {
+    const statsDiv = document.getElementById('statsWilayah');
+    if (!statsDiv) return;
+    
+    // Bungkus statsDiv dengan wrapper yang bisa di-resize
+    let wrapper = statsDiv.parentElement;
+    if (!wrapper.classList.contains('stats-resizable-wrapper')) {
+        wrapper = document.createElement('div');
+        wrapper.className = 'stats-resizable-wrapper';
+        statsDiv.parentNode.insertBefore(wrapper, statsDiv);
+        wrapper.appendChild(statsDiv);
+    }
+    
+    // Cek apakah handle sudah ada
+    if (!wrapper.querySelector('.stats-resize-handle')) {
+        // Tambahkan handle resize di atas statsDiv
+        const handle = document.createElement('div');
+        handle.className = 'stats-resize-handle';
+        
+        // Tambahkan indikator visual
+        const indicator = document.createElement('div');
+        indicator.className = 'resize-indicator';
+        handle.appendChild(indicator);
+        
+        wrapper.insertBefore(handle, statsDiv);
+    }
+    
+    const handle = wrapper.querySelector('.stats-resize-handle');
+    const statsContent = document.getElementById('statsContent');
+    
+    if (!statsContent) return;
+    
+    // Variabel untuk resize
+    let startY = 0;
+    let startHeight = 0;
+    let isResizing = false;
+    
+    // Fungsi untuk menyimpan tinggi ke localStorage
+    function saveHeight(height) {
+        localStorage.setItem('statsPanelHeight', height);
+    }
+    
+    // Fungsi untuk memuat tinggi dari localStorage
+    function loadHeight() {
+        const saved = localStorage.getItem('statsPanelHeight');
+        if (saved) {
+            statsContent.style.height = saved + 'px';
+            statsContent.style.maxHeight = saved + 'px';
+        } else {
+            statsContent.style.maxHeight = '300px';
+            statsContent.style.height = '300px';
+        }
+    }
+    
+    // Event mouse untuk resize
+    const onMouseDown = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        isResizing = true;
+        startY = e.clientY;
+        startHeight = statsContent.offsetHeight;
+        
+        // Ubah cursor saat resize
+        document.body.style.cursor = 'ns-resize';
+        document.body.style.userSelect = 'none';
+        
+        // Tambahkan overlay
+        let overlay = document.getElementById('resize-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'resize-overlay';
+            document.body.appendChild(overlay);
+        }
+        overlay.style.display = 'block';
+    };
+    
+    const onMouseMove = function(e) {
+        if (!isResizing) return;
+        
+        e.preventDefault();
+        const deltaY = e.clientY - startY;
+        let newHeight = startHeight + deltaY;
+        
+        // Batasi tinggi minimum dan maksimum
+        const minHeight = 120;
+        const maxHeight = window.innerHeight - 350;
+        
+        newHeight = Math.min(maxHeight, Math.max(minHeight, newHeight));
+        
+        statsContent.style.height = newHeight + 'px';
+        statsContent.style.maxHeight = newHeight + 'px';
+    };
+    
+    const onMouseUp = function(e) {
+        if (isResizing) {
+            isResizing = false;
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            
+            const overlay = document.getElementById('resize-overlay');
+            if (overlay) overlay.style.display = 'none';
+            
+            // Simpan tinggi yang baru
+            if (statsContent && statsContent.offsetHeight) {
+                saveHeight(statsContent.offsetHeight);
+            }
+        }
+    };
+    
+    handle.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    
+    // Hentikan event click pada handle agar tidak mentrigger toggle
+    handle.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+    
+    // Load saved height
+    loadHeight();
+    
+    // Pastikan statsContent memiliki overflow yang benar
+    statsContent.style.overflowY = 'auto';
+}
 
 // 1. LOAD GEOJSON
 fetch('data/wilayah.geojson')
@@ -263,7 +457,8 @@ fetch('data/wilayah.geojson')
         if (allBusinessData.length > 0) {
             hitungStatistikWilayah();
         }
-    });
+    })
+    .catch(error => console.error('Error loading GeoJSON:', error));
 
 // 2. LOAD FIREBASE
 const dbRef = ref(db, 'tagging_usaha');
@@ -308,12 +503,13 @@ function renderDisplay(filterValue) {
         
         if (filterValue === "Semua" || kategori === filterValue) {
             const marker = L.marker([data.latitude, data.longitude]);
-            marker.bindPopup(`<b>${data.namaUsaha}</b><br>Kategori: ${kategori}`);
+            const internetStatus = data.isMenggunakanInternet ? '🌐 Ya' : '📡 Tidak';
+            marker.bindPopup(`<b>${data.namaUsaha}</b><br>Kategori: ${kategori}<br>Internet: ${internetStatus}`);
             allMarkers.addLayer(marker);
 
             const div = document.createElement('div');
             div.className = 'item';
-            div.innerHTML = `<h4>${data.namaUsaha}</h4><p>Kategori: ${kategori}</p>`;
+            div.innerHTML = `<h4>${data.namaUsaha}</h4><p>Kategori: ${kategori}</p><p>🌐 Internet: ${internetStatus}</p>`;
             
             div.onclick = () => {
                 if (currentlySelectedMarker) currentlySelectedMarker.setIcon(new L.Icon.Default());
