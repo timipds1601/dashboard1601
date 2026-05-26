@@ -1,14 +1,91 @@
-/* Container untuk statistik */
-.stats-wilayah-container {
-    margin: 0 10px 10px 10px;
-    display: flex;
-    flex-direction: column;
+/* Pastikan body dan html mengambil tinggi penuh */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family: 'Segoe UI', sans-serif;
 }
 
-/* Stats filter input */
+body {
+    display: flex;
+}
+
+/* Sidebar */
+#sidebar {
+    width: 350px;
+    height: 100vh;
+    background: #f8fafc;
+    border-right: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+}
+
+/* Peta */
+#map {
+    flex-grow: 1;
+    height: 100vh;
+}
+
+/* Header */
+h2 {
+    padding: 20px;
+    margin: 0;
+    background: #2c3e50;
+    color: white;
+    text-align: center;
+    font-size: 1.2em;
+}
+
+.search-box {
+    padding: 15px;
+    background: #f9f9f9;
+    border-bottom: 1px solid #ddd;
+}
+
+#searchInput, #searchIdsls, #filterKategori {
+    width: 90%;
+    padding: 10px;
+    margin: 0 auto 10px auto;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    display: block;
+    box-sizing: border-box;
+}
+
+/* List Item */
+#dataList {
+    overflow-y: auto;
+    flex-grow: 1;
+    padding: 10px;
+}
+
+.item {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.item:hover {
+    background: #f0f0f0;
+    border-color: #2980b9;
+}
+
+.item h4 {
+    margin: 0 0 5px 0;
+    color: #2980b9;
+}
+
+/* ========== STATISTIK WILAYAH ========== */
 .stats-filter-input {
     width: calc(100% - 20px);
-    margin: 0 0 10px 0;
+    margin: 10px;
     padding: 8px 12px;
     border: 1px solid #ccc;
     border-radius: 4px;
@@ -22,57 +99,11 @@
     border-color: #2980b9;
 }
 
-/* Resizable wrapper */
-.stats-resizable-wrapper {
-    position: relative;
-    display: flex;
-    flex-direction: column;
+.stats-wilayah {
+    margin: 0 10px 10px 10px;
     background: white;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
-    overflow: hidden;
-}
-
-/* Handle resize */
-.stats-resize-handle {
-    height: 8px;
-    background: #cbd5e1;
-    cursor: ns-resize;
-    transition: background 0.2s;
-    position: relative;
-    flex-shrink: 0;
-}
-
-.stats-resize-handle:hover {
-    background: #2980b9;
-}
-
-.stats-resize-handle:active {
-    background: #1a5a7a;
-}
-
-.resize-indicator {
-    position: absolute;
-    top: -3px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 40px;
-    height: 3px;
-    background: #94a3b8;
-    border-radius: 2px;
-    opacity: 0;
-    transition: opacity 0.2s;
-}
-
-.stats-resize-handle:hover .resize-indicator {
-    opacity: 1;
-}
-
-/* Stats wilayah */
-.stats-wilayah {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
     overflow: hidden;
 }
 
@@ -86,7 +117,6 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-shrink: 0;
 }
 
 .stats-header:hover {
@@ -94,11 +124,25 @@
 }
 
 .stats-content {
+    max-height: 300px;
     overflow-y: auto;
-    flex: 1;
 }
 
-/* Stat item */
+.stats-filter-info {
+    padding: 8px 12px;
+    background: #e3f2fd;
+    font-size: 11px;
+    color: #1565c0;
+    border-bottom: 1px solid #bbdef5;
+}
+
+.stats-no-data {
+    padding: 20px;
+    text-align: center;
+    color: #999;
+    font-size: 12px;
+}
+
 .stat-item {
     padding: 12px;
     border-bottom: 1px solid #e2e8f0;
@@ -153,68 +197,6 @@
     margin-right: 8px;
 }
 
-/* Info internet */
-.stat-internet {
-    background: #f0f9ff;
-    border-radius: 6px;
-    padding: 8px 10px;
-    margin: 8px 0;
-    border-left: 3px solid #2196f3;
-}
-
-.internet-row {
-    display: flex;
-    align-items: center;
-    margin-bottom: 5px;
-    font-size: 11px;
-}
-
-.internet-icon {
-    margin-right: 6px;
-    font-size: 11px;
-    min-width: 18px;
-}
-
-.internet-label {
-    flex: 1;
-    color: #555;
-}
-
-.internet-value {
-    font-weight: bold;
-}
-
-.internet-value.yes {
-    color: #2e7d32;
-}
-
-.internet-value.no {
-    color: #c62828;
-}
-
-.internet-bar-container {
-    margin-top: 6px;
-    height: 5px;
-    background: #e0e0e0;
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.internet-bar {
-    height: 100%;
-    background: linear-gradient(90deg, #4caf50, #66bb6a);
-    border-radius: 4px;
-    transition: width 0.3s ease;
-}
-
-.internet-percent-text {
-    text-align: right;
-    font-size: 9px;
-    color: #666;
-    margin-top: 3px;
-}
-
-/* Kategori */
 .stat-kategori {
     display: flex;
     flex-wrap: wrap;
@@ -228,15 +210,6 @@
     border-radius: 10px;
     font-size: 10px;
     color: #2c3e50;
-    cursor: help;
-    max-width: 150px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.stat-badge:hover {
-    background: #d5dbdb;
 }
 
 .stat-badge.stat-empty {
@@ -249,24 +222,4 @@
     color: #7f8c8d;
     font-style: italic;
     padding: 2px 5px;
-}
-
-.stats-filter-info {
-    padding: 8px 12px;
-    background: #e3f2fd;
-    font-size: 11px;
-    color: #1565c0;
-    border-bottom: 1px solid #bbdef5;
-}
-
-.stats-no-data {
-    padding: 20px;
-    text-align: center;
-    color: #999;
-    font-size: 12px;
-}
-
-/* Overlay untuk resize */
-#resize-overlay {
-    display: none;
 }
