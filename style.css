@@ -36,15 +36,17 @@ h2 {
     color: white;
     text-align: center;
     font-size: 1.2em;
+    flex-shrink: 0;
 }
 
 .search-box {
     padding: 15px;
     background: #f9f9f9;
     border-bottom: 1px solid #ddd;
+    flex-shrink: 0;
 }
 
-#searchInput, #searchIdsls, #filterKategori {
+#searchInput, #searchIdsls {
     width: 90%;
     padding: 10px;
     margin: 0 auto 10px auto;
@@ -54,7 +56,30 @@ h2 {
     box-sizing: border-box;
 }
 
-/* List Item */
+.control-group {
+    padding: 15px;
+    background: #f9f9f9;
+    border-bottom: 1px solid #ddd;
+    flex-shrink: 0;
+}
+
+.control-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #555;
+}
+
+#filterKategori {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+/* List Item - akan mengambil sisa ruang */
 #dataList {
     overflow-y: auto;
     flex-grow: 1;
@@ -63,7 +88,7 @@ h2 {
 
 .item {
     background: white;
-    padding: 15px;
+    padding: 12px;
     border-radius: 8px;
     border: 1px solid #e2e8f0;
     margin-bottom: 10px;
@@ -80,6 +105,13 @@ h2 {
 .item h4 {
     margin: 0 0 5px 0;
     color: #2980b9;
+    font-size: 14px;
+}
+
+.item p {
+    margin: 3px 0;
+    font-size: 12px;
+    color: #666;
 }
 
 /* ========== STATISTIK WILAYAH ========== */
@@ -92,6 +124,7 @@ h2 {
     font-size: 12px;
     box-sizing: border-box;
     background: white;
+    flex-shrink: 0;
 }
 
 .stats-filter-input:focus {
@@ -99,12 +132,14 @@ h2 {
     border-color: #2980b9;
 }
 
+/* Container statistik */
 .stats-wilayah {
     margin: 0 10px 10px 10px;
     background: white;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     overflow: hidden;
+    flex-shrink: 0;
 }
 
 .stats-header {
@@ -124,27 +159,51 @@ h2 {
 }
 
 .stats-content {
-    max-height: 300px;
+    max-height: 250px;
     overflow-y: auto;
+    border-top: 1px solid #e2e8f0;
 }
 
-.stats-filter-info {
-    padding: 8px 12px;
-    background: #e3f2fd;
-    font-size: 11px;
-    color: #1565c0;
-    border-bottom: 1px solid #bbdef5;
+/* Handle resize - ditempatkan di antara filter dan statistik */
+.stats-resize-handle {
+    height: 6px;
+    background: #cbd5e1;
+    cursor: ns-resize;
+    transition: background 0.2s;
+    margin: 0 10px;
+    border-radius: 3px;
+    position: relative;
+    flex-shrink: 0;
 }
 
-.stats-no-data {
-    padding: 20px;
-    text-align: center;
-    color: #999;
-    font-size: 12px;
+.stats-resize-handle:hover {
+    background: #2980b9;
 }
 
+.stats-resize-handle:active {
+    background: #1a5a7a;
+}
+
+.resize-indicator {
+    position: absolute;
+    top: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 2px;
+    background: #94a3b8;
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.stats-resize-handle:hover .resize-indicator {
+    opacity: 1;
+}
+
+/* Stat item */
 .stat-item {
-    padding: 12px;
+    padding: 10px 12px;
     border-bottom: 1px solid #e2e8f0;
     cursor: pointer;
     transition: 0.2s;
@@ -158,21 +217,21 @@ h2 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 6px;
+    margin-bottom: 5px;
 }
 
 .stat-idsls {
     font-family: monospace;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: bold;
     color: #2c3e50;
     background: #ecf0f1;
-    padding: 2px 8px;
+    padding: 2px 6px;
     border-radius: 4px;
 }
 
 .stat-total-badge {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: bold;
     background: #2980b9;
     color: white;
@@ -183,33 +242,106 @@ h2 {
 .stat-nmsls {
     font-weight: bold;
     color: #2c3e50;
-    font-size: 13px;
-    margin-bottom: 4px;
+    font-size: 12px;
+    margin-bottom: 3px;
 }
 
 .stat-location {
-    font-size: 10px;
+    font-size: 9px;
     color: #7f8c8d;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 .stat-location span {
     margin-right: 8px;
 }
 
+/* Info internet */
+.stat-internet {
+    background: #f0f9ff;
+    border-radius: 6px;
+    padding: 6px 8px;
+    margin: 6px 0;
+    border-left: 3px solid #2196f3;
+}
+
+.internet-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+    font-size: 10px;
+}
+
+.internet-icon {
+    margin-right: 5px;
+    font-size: 10px;
+    min-width: 16px;
+}
+
+.internet-label {
+    flex: 1;
+    color: #555;
+    font-size: 10px;
+}
+
+.internet-value {
+    font-weight: bold;
+    font-size: 10px;
+}
+
+.internet-value.yes {
+    color: #2e7d32;
+}
+
+.internet-value.no {
+    color: #c62828;
+}
+
+.internet-bar-container {
+    margin-top: 5px;
+    height: 4px;
+    background: #e0e0e0;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.internet-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #4caf50, #66bb6a);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.internet-percent-text {
+    text-align: right;
+    font-size: 8px;
+    color: #666;
+    margin-top: 2px;
+}
+
+/* Kategori */
 .stat-kategori {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
+    gap: 4px;
     margin-top: 6px;
 }
 
 .stat-badge {
     background: #ecf0f1;
-    padding: 2px 8px;
+    padding: 2px 6px;
     border-radius: 10px;
-    font-size: 10px;
+    font-size: 9px;
     color: #2c3e50;
+    cursor: help;
+    max-width: 140px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stat-badge:hover {
+    background: #d5dbdb;
 }
 
 .stat-badge.stat-empty {
@@ -218,8 +350,36 @@ h2 {
 }
 
 .stat-more {
-    font-size: 10px;
+    font-size: 9px;
     color: #7f8c8d;
     font-style: italic;
-    padding: 2px 5px;
+    padding: 2px 4px;
+}
+
+.stats-filter-info {
+    padding: 6px 10px;
+    background: #e3f2fd;
+    font-size: 10px;
+    color: #1565c0;
+    border-bottom: 1px solid #bbdef5;
+}
+
+.stats-no-data {
+    padding: 15px;
+    text-align: center;
+    color: #999;
+    font-size: 11px;
+}
+
+/* Overlay untuk resize */
+#resize-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    z-index: 9999;
+    cursor: ns-resize;
+    display: none;
 }
