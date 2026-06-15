@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.comfirebasejs/9.22.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
 const firebaseConfig = { databaseURL: "https://indigoapp-fafa0-default-rtdb.asia-southeast1.firebasedatabase.app/" };
@@ -21,6 +21,7 @@ let currentlySelectedMarker = null;
 const regionLayers = {};
 let geojsonData = null;
 let statistikData = {};
+let geoJsonLayer = null; // Untuk menyimpan layer GeoJSON
 
 // Variabel untuk Rekap Dashboard
 let rekapData = [];
@@ -43,7 +44,6 @@ const rekapTableContainer = document.getElementById('rekapTableContainer');
 
 // ==================== FUNGSI BANTU UNTUK MENDAPATKAN NAMA LENGKAP ====================
 function getDisplayName(usaha) {
-    // Coba berbagai kemungkinan field nama pemilik
     const namaPemilik = usaha.namaPemilik || usaha.pemilik || usaha.nama_pemilik || usaha.owner || '';
     const namaUsaha = usaha.namaUsaha || usaha.nama_usaha || usaha.nama || '';
     
@@ -76,6 +76,10 @@ function initNavigation() {
                 rekapContent.style.display = 'none';
                 setTimeout(() => {
                     map.invalidateSize();
+                    // Kembalikan ke batas GeoJSON jika ada
+                    if (geoJsonLayer && geoJsonLayer.getBounds().isValid()) {
+                        map.fitBounds(geoJsonLayer.getBounds());
+                    }
                 }, 100);
             } else if (menuType === 'rekap') {
                 petaContent.style.display = 'none';
@@ -438,7 +442,7 @@ function renderDisplay(filterValue) {
     }
 }
 
-// ==================== FUNGSI STATISTIK WILAYAH (DISEDERHANAKAN) ====================
+// ==================== FUNGSI STATISTIK WILAYAH ====================
 function tampilkanStatistik() {
     let statsDiv = document.getElementById('statsWilayah');
     if (!statsDiv) {
@@ -506,7 +510,6 @@ function tampilkanStatistik() {
         filteredData.forEach(wilayah => {
             const total = wilayah.total || 0;
             
-            // Tampilan sederhana: hanya IDSLS, Kecamatan, Desa, dan Total Usaha
             html += `
                 <div class="stat-item" onclick="zoomKeWilayah('${wilayah.idsls}')">
                     <div class="stat-header-row">
@@ -555,7 +558,6 @@ function updatePopupWilayah() {
                 }
             }
             
-            // Popup untuk wilayah (tetap lengkap karena tidak terlalu mengganggu)
             layer.bindPopup(`
                 <div style="min-width:280px; max-width:350px; max-height:400px; overflow-y:auto;">
                     <b>🏢 ${data.nmsls || '-'}</b><br>
@@ -775,19 +777,27 @@ if (exportPDFBtn) {
 }
 
 // ==================== LOAD DATA ====================
-// LOAD GEOJSON
+// LOAD GEOJSON - DENGAN AUTO ZOOM KE WILAYAH GEOJSON
 fetch('data/wilayah.geojson')
     .then(res => res.json())
     .then(data => {
         geojsonData = data;
         
-        L.geoJSON(data, {
+        // Simpan layer GeoJSON ke variabel global
+        geoJsonLayer = L.geoJSON(data, {
             style: { color: "#ff7800", weight: 2, fillOpacity: 0.1 },
             onEachFeature: (feature, layer) => {
                 const idsls = feature.properties.idsls || "Tanpa ID";
                 regionLayers[idsls] = layer;
             }
         }).addTo(map);
+
+        // AUTO ZOOM KE BATAS GEOJSON
+        // Fitur ini akan membuat peta langsung zoom ke area yang memiliki GeoJSON
+        if (geoJsonLayer.getBounds().isValid()) {
+            map.fitBounds(geoJsonLayer.getBounds());
+            console.log('Peta langsung zoom ke area GeoJSON');
+        }
 
         Object.keys(regionLayers).sort().forEach(id => {
             const option = document.createElement('option');
