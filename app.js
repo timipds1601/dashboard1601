@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.comfirebasejs/9.22.0/firebase-app.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
 const firebaseConfig = { databaseURL: "https://indigoapp-fafa0-default-rtdb.asia-southeast1.firebasedatabase.app/" };
@@ -397,7 +397,6 @@ function renderDisplay(filterValue) {
             const marker = L.marker([data.latitude, data.longitude]);
             const internetStatus = data.isMenggunakanInternet === true ? '✅ Ya' : '❌ Tidak';
             
-            // Gunakan fungsi getDisplayName untuk format nama usaha - pemilik
             const displayName = getDisplayName(data);
             
             marker.bindPopup(`
@@ -439,7 +438,7 @@ function renderDisplay(filterValue) {
     }
 }
 
-// ==================== FUNGSI STATISTIK WILAYAH ====================
+// ==================== FUNGSI STATISTIK WILAYAH (DISEDERHANAKAN) ====================
 function tampilkanStatistik() {
     let statsDiv = document.getElementById('statsWilayah');
     if (!statsDiv) {
@@ -453,7 +452,7 @@ function tampilkanStatistik() {
         
         const filterInput = document.createElement('input');
         filterInput.id = 'filterStatIdsls';
-        filterInput.placeholder = '🔍 Cari IDSLS, Desa, atau Kecamatan...';
+        filterInput.placeholder = '🔍 Cari IDSLS, Kecamatan, atau Desa...';
         filterInput.className = 'stats-filter-input';
         filterInput.addEventListener('input', () => tampilkanStatistik());
         statsDiv.parentNode.insertBefore(filterInput, statsDiv);
@@ -489,7 +488,6 @@ function tampilkanStatistik() {
     if (filterText) {
         filteredData = filteredData.filter(wilayah => 
             (wilayah.idsls || "").toLowerCase().includes(filterText) ||
-            (wilayah.nmsls || "").toLowerCase().includes(filterText) ||
             (wilayah.nmkec || "").toLowerCase().includes(filterText) ||
             (wilayah.nmdesa || "").toLowerCase().includes(filterText)
         );
@@ -507,56 +505,20 @@ function tampilkanStatistik() {
     } else {
         filteredData.forEach(wilayah => {
             const total = wilayah.total || 0;
-            const menggunakanInternet = wilayah.menggunakanInternet || 0;
-            const tidakPakaiInternet = total - menggunakanInternet;
-            const persenInternet = total > 0 ? ((menggunakanInternet / total) * 100).toFixed(1) : 0;
             
+            // Tampilan sederhana: hanya IDSLS, Kecamatan, Desa, dan Total Usaha
             html += `
                 <div class="stat-item" onclick="zoomKeWilayah('${wilayah.idsls}')">
                     <div class="stat-header-row">
                         <div class="stat-idsls">${wilayah.idsls || '-'}</div>
                         <div class="stat-total-badge">${total} usaha</div>
                     </div>
-                    <div class="stat-nmsls">${wilayah.nmsls || '-'}</div>
                     <div class="stat-location">
-                        <span>📍 ${wilayah.nmkec || '-'}</span>
-                        <span> | ${wilayah.nmdesa || '-'}</span>
+                        <span>📍 Kec: ${wilayah.nmkec || '-'}</span>
+                        <span> | Desa: ${wilayah.nmdesa || '-'}</span>
                     </div>
-                    <div class="stat-internet">
-                        <div class="internet-row">
-                            <span class="internet-icon">🌐</span>
-                            <span class="internet-label">Menggunakan Internet:</span>
-                            <span class="internet-value yes">${menggunakanInternet}</span>
-                        </div>
-                        <div class="internet-row">
-                            <span class="internet-icon">📡</span>
-                            <span class="internet-label">Tidak menggunakan:</span>
-                            <span class="internet-value no">${tidakPakaiInternet}</span>
-                        </div>
-                        ${total > 0 ? `
-                            <div class="internet-bar-container">
-                                <div class="internet-bar" style="width: ${persenInternet}%"></div>
-                            </div>
-                            <div class="internet-percent-text">${persenInternet}% menggunakan internet</div>
-                        ` : '<div class="internet-percent-text">Belum ada data usaha</div>'}
-                    </div>
-                    <div class="stat-kategori">
+                </div>
             `;
-            
-            const kategoriList = Object.entries(wilayah.kategori || {}).sort((a,b) => b[1] - a[1]);
-            if (kategoriList.length > 0) {
-                kategoriList.slice(0, 4).forEach(([kat, jml]) => {
-                    let shortKat = kat.length > 25 ? kat.substring(0, 22) + '...' : kat;
-                    html += `<span class="stat-badge" title="${kat}">${shortKat}: ${jml}</span>`;
-                });
-                if (kategoriList.length > 4) {
-                    html += `<span class="stat-more">+${kategoriList.length - 4} lainnya</span>`;
-                }
-            } else {
-                html += `<span class="stat-badge stat-empty">Belum ada data</span>`;
-            }
-            
-            html += `</div></div>`;
         });
     }
     
@@ -593,15 +555,7 @@ function updatePopupWilayah() {
                 }
             }
             
-            let kategoriHtml = '';
-            if (Object.keys(data.kategori || {}).length > 0) {
-                kategoriHtml = '<div style="margin-top:8px"><strong>📋 Kategori:</strong><br>';
-                for (const [kat, jml] of Object.entries(data.kategori)) {
-                    kategoriHtml += `• ${kat}: ${jml}<br>`;
-                }
-                kategoriHtml += '</div>';
-            }
-            
+            // Popup untuk wilayah (tetap lengkap karena tidak terlalu mengganggu)
             layer.bindPopup(`
                 <div style="min-width:280px; max-width:350px; max-height:400px; overflow-y:auto;">
                     <b>🏢 ${data.nmsls || '-'}</b><br>
@@ -616,7 +570,6 @@ function updatePopupWilayah() {
                         ${total > 0 ? `<br><br><div style="height:6px; background:#ddd; border-radius:3px;"><div style="width:${persenInternet}%; height:100%; background:#4caf50; border-radius:3px;"></div></div>
                         <div style="text-align:center; margin-top:4px;">${persenInternet}% menggunakan internet</div>` : ''}
                     </div>
-                    ${kategoriHtml}
                     ${daftarUsahaHtml}
                 </div>
             `);
