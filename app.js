@@ -41,6 +41,23 @@ const exportExcelBtn = document.getElementById('exportExcel');
 const exportPDFBtn = document.getElementById('exportPDF');
 const rekapTableContainer = document.getElementById('rekapTableContainer');
 
+// ==================== FUNGSI BANTU UNTUK MENDAPATKAN NAMA LENGKAP ====================
+function getDisplayName(usaha) {
+    // Coba berbagai kemungkinan field nama pemilik
+    const namaPemilik = usaha.namaPemilik || usaha.pemilik || usaha.nama_pemilik || usaha.owner || '';
+    const namaUsaha = usaha.namaUsaha || usaha.nama_usaha || usaha.nama || '';
+    
+    if (namaUsaha && namaPemilik) {
+        return `${namaUsaha} - ${namaPemilik}`;
+    } else if (namaUsaha) {
+        return namaUsaha;
+    } else if (namaPemilik) {
+        return namaPemilik;
+    } else {
+        return 'Tidak ada nama';
+    }
+}
+
 // ==================== FUNGSI NAVIGASI ====================
 function initNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
@@ -271,9 +288,13 @@ function renderRekapDashboard() {
     const totalSLS = filteredData.length;
     const avgUsaha = totalSLS > 0 ? (totalUsaha / totalSLS).toFixed(1) : 0;
     
-    document.getElementById('totalSLS').textContent = totalSLS;
-    document.getElementById('totalUsahaAll').textContent = totalUsaha;
-    document.getElementById('avgUsaha').textContent = avgUsaha;
+    const totalSLSEl = document.getElementById('totalSLS');
+    const totalUsahaAllEl = document.getElementById('totalUsahaAll');
+    const avgUsahaEl = document.getElementById('avgUsaha');
+    
+    if (totalSLSEl) totalSLSEl.textContent = totalSLS;
+    if (totalUsahaAllEl) totalUsahaAllEl.textContent = totalUsaha;
+    if (avgUsahaEl) avgUsahaEl.textContent = avgUsaha;
     
     let html = `
         <div class="rekap-info">
@@ -376,9 +397,8 @@ function renderDisplay(filterValue) {
             const marker = L.marker([data.latitude, data.longitude]);
             const internetStatus = data.isMenggunakanInternet === true ? '✅ Ya' : '❌ Tidak';
             
-            const displayName = data.namaUsaha && data.namaPemilik 
-                ? `${data.namaUsaha} - ${data.namaPemilik}`
-                : data.namaUsaha || data.namaPemilik || 'Tidak ada nama';
+            // Gunakan fungsi getDisplayName untuk format nama usaha - pemilik
+            const displayName = getDisplayName(data);
             
             marker.bindPopup(`
                 <b>${displayName}</b><br>
@@ -563,9 +583,7 @@ function updatePopupWilayah() {
                 if (usahaDiWilayah.length > 0) {
                     daftarUsahaHtml = '<div style="margin-top:8px"><strong>📋 Daftar Usaha:</strong><br>';
                     usahaDiWilayah.slice(0, 5).forEach(usaha => {
-                        const displayName = usaha.namaUsaha && usaha.namaPemilik 
-                            ? `${usaha.namaUsaha} - ${usaha.namaPemilik}`
-                            : usaha.namaUsaha || usaha.namaPemilik || 'Tidak ada nama';
+                        const displayName = getDisplayName(usaha);
                         daftarUsahaHtml += `• ${displayName}<br>`;
                     });
                     if (usahaDiWilayah.length > 5) {
