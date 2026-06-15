@@ -120,7 +120,7 @@ body {
     font-size: 0.85rem;
 }
 
-/* ========== PETA CONTENT ========== */
+/* ========== PETA CONTENT (sama seperti sebelumnya) ========== */
 .panel-body {
     flex: 1;
     display: flex;
@@ -182,10 +182,6 @@ body {
     font-size: 12px;
     font-weight: 600;
     color: #555;
-}
-
-.filter-group label i {
-    margin-right: 5px;
 }
 
 #filterKategori {
@@ -268,8 +264,16 @@ body {
     height: 100%;
 }
 
-/* ========== REKAP DASHBOARD CONTENT ========== */
+/* ========== REKAP DASHBOARD dengan RIGHT NAVIGASI ========== */
 .panel-body-rekap {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    gap: 0;
+}
+
+/* Konten utama rekap (kiri) */
+.rekap-main {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -278,6 +282,170 @@ body {
     gap: 15px;
 }
 
+/* Right Navigasi untuk rekap */
+.rekap-right-nav {
+    width: 320px;
+    background: white;
+    border-left: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.05);
+}
+
+.right-nav-header {
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    text-align: center;
+}
+
+.right-nav-header i {
+    font-size: 2rem;
+    margin-bottom: 10px;
+}
+
+.right-nav-header h4 {
+    font-size: 1rem;
+    margin: 0;
+}
+
+.right-nav-content {
+    flex: 1;
+    padding: 15px;
+}
+
+.right-nav-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #e0e0e0, transparent);
+    margin: 15px 0;
+}
+
+.right-nav-subtitle {
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.right-nav-subtitle i {
+    margin-right: 5px;
+    color: #667eea;
+}
+
+/* Stat Ringkas */
+.stat-ringkas-item {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.stat-ringkas-item:hover {
+    background: #f0f2f5;
+    transform: translateX(-3px);
+}
+
+.stat-ringkas-label {
+    font-size: 12px;
+    color: #666;
+}
+
+.stat-ringkas-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #667eea;
+}
+
+/* Top Kategori */
+.top-kategori-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.top-kategori-item:last-child {
+    border-bottom: none;
+}
+
+.kategori-name {
+    font-size: 12px;
+    color: #333;
+}
+
+.kategori-name i {
+    margin-right: 8px;
+    color: #667eea;
+    font-size: 11px;
+}
+
+.kategori-count {
+    font-weight: bold;
+    color: #667eea;
+    font-size: 13px;
+}
+
+/* Top SLS */
+.top-sls-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.top-sls-item:hover {
+    background: #f8f9ff;
+    padding-left: 5px;
+}
+
+.top-sls-rank {
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.top-sls-info {
+    flex: 1;
+}
+
+.top-sls-id {
+    font-size: 11px;
+    font-weight: bold;
+    color: #333;
+    font-family: monospace;
+}
+
+.top-sls-name {
+    font-size: 10px;
+    color: #666;
+    margin-top: 2px;
+}
+
+.top-sls-count {
+    font-weight: bold;
+    color: #667eea;
+    font-size: 13px;
+}
+
+/* Rekap Controls */
 .rekap-controls {
     display: flex;
     gap: 15px;
@@ -447,10 +615,6 @@ body {
     text-align: center;
 }
 
-.rekap-table th:last-child {
-    text-align: center;
-}
-
 .loading-rekap {
     text-align: center;
     padding: 50px;
@@ -503,135 +667,7 @@ body {
     border-bottom: 1px solid #e0e0e0;
 }
 
-/* ========== STATISTIK WILAYAH (existing) ========== */
-.stats-filter-input {
-    width: calc(100% - 20px);
-    margin: 10px;
-    padding: 8px 12px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 12px;
-}
-
-.stats-wilayah {
-    margin: 10px;
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-.stats-header {
-    background: #2c3e50;
-    color: white;
-    padding: 10px 15px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: bold;
-    display: flex;
-    justify-content: space-between;
-}
-
-.stats-content {
-    max-height: 250px;
-    overflow-y: auto;
-}
-
-.stats-resize-handle {
-    height: 5px;
-    background: #cbd5e1;
-    cursor: ns-resize;
-    margin: 0 10px;
-    border-radius: 3px;
-}
-
-.stat-item {
-    padding: 10px;
-    border-bottom: 1px solid #e0e0e0;
-    cursor: pointer;
-}
-
-.stat-item:hover {
-    background: #f8f9ff;
-}
-
-.stat-header-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 5px;
-}
-
-.stat-idsls {
-    font-family: monospace;
-    font-size: 10px;
-    background: #ecf0f1;
-    padding: 2px 6px;
-    border-radius: 4px;
-}
-
-.stat-total-badge {
-    font-size: 10px;
-    background: #667eea;
-    color: white;
-    padding: 2px 8px;
-    border-radius: 12px;
-}
-
-.stat-nmsls {
-    font-weight: bold;
-    font-size: 12px;
-    margin-bottom: 3px;
-}
-
-.stat-location {
-    font-size: 9px;
-    color: #7f8c8d;
-    margin-bottom: 6px;
-}
-
-.stat-internet {
-    background: #f0f9ff;
-    border-radius: 6px;
-    padding: 6px;
-    margin: 6px 0;
-}
-
-.internet-row {
-    display: flex;
-    gap: 10px;
-    font-size: 10px;
-    margin-bottom: 3px;
-}
-
-.internet-bar-container {
-    margin-top: 5px;
-    height: 4px;
-    background: #e0e0e0;
-    border-radius: 2px;
-    overflow: hidden;
-}
-
-.internet-bar {
-    height: 100%;
-    background: #4caf50;
-    border-radius: 2px;
-}
-
-.stat-kategori {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 6px;
-}
-
-.stat-badge {
-    background: #ecf0f1;
-    padding: 2px 6px;
-    border-radius: 10px;
-    font-size: 9px;
-}
-
-/* Scrollbar styling */
+/* Scrollbar */
 ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -651,6 +687,12 @@ body {
 }
 
 /* Responsive */
+@media (max-width: 1024px) {
+    .rekap-right-nav {
+        width: 280px;
+    }
+}
+
 @media (max-width: 768px) {
     .left-nav {
         width: 70px;
@@ -669,16 +711,15 @@ body {
         width: 280px;
     }
     
+    .rekap-right-nav {
+        display: none;
+    }
+    
     .rekap-controls {
         flex-direction: column;
     }
     
     .export-buttons {
         width: 100%;
-    }
-    
-    .btn-excel, .btn-pdf {
-        flex: 1;
-        justify-content: center;
     }
 }
