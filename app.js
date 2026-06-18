@@ -84,7 +84,6 @@ function initNavigation() {
             
             const menuType = this.getAttribute('data-menu');
             
-            // Sembunyikan semua konten
             petaContent.style.display = 'none';
             rekapKecamatanContent.style.display = 'none';
             rekapSubslsContent.style.display = 'none';
@@ -219,6 +218,131 @@ function updateRekapData() {
         .sort((a, b) => a.idsubsls.localeCompare(b.idsubsls));
 }
 
+// ==================== UPDATE RIGHT NAVIGASI SUB SLS ====================
+function updateRightNavigationSubsls(filteredData) {
+    const totalUsaha = filteredData.reduce((sum, item) => sum + item.totalUsaha, 0);
+    const totalSLS = filteredData.length;
+    const avgUsaha = totalSLS > 0 ? (totalUsaha / totalSLS).toFixed(1) : 0;
+    const menggunakanInternet = filteredData.reduce((sum, item) => sum + (item.menggunakanInternet || 0), 0);
+    const persenInternet = totalUsaha > 0 ? ((menggunakanInternet / totalUsaha) * 100).toFixed(1) : 0;
+    
+    const totalUsahaGeoJSON = filteredData.reduce((sum, item) => sum + (item.usahaGeoJSON || 0), 0);
+    const totalMuatanGeoJSON = filteredData.reduce((sum, item) => sum + (item.muatanGeoJSON || 0), 0);
+    
+    const statRingkasHtml = `
+        <div class="stat-ringkas-item">
+            <span class="stat-ringkas-label"><i class="fas fa-store"></i> Total Usaha</span>
+            <span class="stat-ringkas-value">${totalUsaha}</span>
+        </div>
+        <div class="stat-ringkas-item">
+            <span class="stat-ringkas-label"><i class="fas fa-building"></i> Total SUB SLS</span>
+            <span class="stat-ringkas-value">${totalSLS}</span>
+        </div>
+        <div class="stat-ringkas-item">
+            <span class="stat-ringkas-label"><i class="fas fa-city"></i> Total Kecamatan</span>
+            <span class="stat-ringkas-value">${rekapByKecamatan.length}</span>
+        </div>
+        <div class="stat-ringkas-item">
+            <span class="stat-ringkas-label"><i class="fas fa-chart-line"></i> Rata-rata per SLS</span>
+            <span class="stat-ringkas-value">${avgUsaha}</span>
+        </div>
+        <div class="stat-ringkas-item">
+            <span class="stat-ringkas-label"><i class="fas fa-wifi"></i> Pengguna Internet</span>
+            <span class="stat-ringkas-value">${menggunakanInternet} (${persenInternet}%)</span>
+        </div>
+        <div class="stat-ringkas-item" style="border-top: 1px solid #e0e0e0; margin-top: 8px; padding-top: 8px;">
+            <span class="stat-ringkas-label"><i class="fas fa-database"></i> Data GeoJSON</span>
+            <span class="stat-ringkas-value" style="font-size: 13px;">Usaha: ${totalUsahaGeoJSON}</span>
+        </div>
+        <div class="stat-ringkas-item" style="margin-top: -5px;">
+            <span class="stat-ringkas-label" style="color: #666; font-size: 10px;">Muatan</span>
+            <span class="stat-ringkas-value" style="font-size: 13px;">${totalMuatanGeoJSON}</span>
+        </div>
+    `;
+    
+    // Hitung Top Kategori
+    const kategoriMap = new Map();
+    filteredData.forEach(item => {
+        Object.entries(item.kategori || {}).forEach(([kat, jml]) => {
+            kategoriMap.set(kat, (kategoriMap.get(kat) || 0) + jml);
+        });
+    });
+    
+    const topKategori = Array.from(kategoriMap.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+    
+    const kategoriIcons = {
+        'Perdagangan': 'fa-store',
+        'Kuliner': 'fa-utensils',
+        'Jasa': 'fa-hand-sparkles',
+        'Lainnya': 'fa-ellipsis-h'
+    };
+    
+    let topKategoriHtml = '';
+    topKategori.forEach(([kat, jml]) => {
+        const icon = kategoriIcons[kat] || 'fa-tag';
+        topKategoriHtml += `
+            <div class="top-kategori-item">
+                <span class="kategori-name">
+                    <i class="fas ${icon}"></i> ${kat}
+                </span>
+                <span class="kategori-count">${jml}</span>
+            </div>
+        `;
+    });
+    
+    if (topKategori.length === 0) {
+        topKategoriHtml = '<div style="text-align:center; color:#999; padding:20px;">Belum ada data</div>';
+    }
+    
+    // Hitung Top 5 SUB SLS
+    const topSLS = [...filteredData]
+        .sort((a, b) => b.totalUsaha - a.totalUsaha)
+        .slice(0, 5);
+    
+    let topSLSHtml = '';
+    topSLS.forEach((item, index) => {
+        topSLSHtml += `
+            <div class="top-sls-item" onclick="zoomToSLS('${item.idsubsls}')">
+                <div class="top-sls-rank">${index + 1}</div>
+                <div class="top-sls-info">
+                    <div class="top-sls-id">${item.idsubsls}</div>
+                    <div class="top-sls-name">${item.nmsubsls || '-'}</div>
+                </div>
+                <div class="top-sls-count">${item.totalUsaha}</div>
+            </div>
+        `;
+    });
+    
+    if (topSLS.length === 0) {
+        topSLSHtml = '<div style="text-align:center; color:#999; padding:20px;">Belum ada data</div>';
+    }
+    
+    // Update DOM
+    const statRingkasDiv = document.getElementById('statRingkasSubsls');
+    const topKategoriDiv = document.getElementById('topKategoriSubsls');
+    const topSLSDiv = document.getElementById('topSLSSubsls');
+    
+    if (statRingkasDiv) statRingkasDiv.innerHTML = statRingkasHtml;
+    if (topKategoriDiv) {
+        topKategoriDiv.innerHTML = `
+            <div class="right-nav-subtitle">
+                <i class="fas fa-tags"></i> Top Kategori Usaha
+            </div>
+            ${topKategoriHtml}
+        `;
+    }
+    if (topSLSDiv) {
+        topSLSDiv.innerHTML = `
+            <div class="right-nav-subtitle">
+                <i class="fas fa-trophy"></i> Top 5 SUB SLS Terbanyak
+            </div>
+            ${topSLSHtml}
+        `;
+    }
+}
+
 // ==================== RENDER REKAP KECAMATAN ====================
 function renderRekapKecamatan() {
     if (!rekapKecamatanContainer) return;
@@ -331,6 +455,9 @@ function renderRekapSubsls() {
             (item.idsls && item.idsls.toLowerCase().includes(currentRekapSearch.toLowerCase()))
         );
     }
+    
+    // Update right navigation
+    updateRightNavigationSubsls(filteredData);
     
     const totalItems = filteredData.length;
     const totalPages = Math.ceil(totalItems / itemsPerPage);
