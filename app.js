@@ -321,7 +321,7 @@ function renderRekapDashboard() {
     
     if (totalSLSEl) totalSLSEl.textContent = totalSLS;
     if (totalUsahaAllEl) {
-        totalUsahaAllEl.textContent = `${totalUsaha} (GeoJSON: ${totalUsahaGeoJSON})`;
+        totalUsahaAllEl.textContent = `${totalUsaha}`;
     }
     if (avgUsahaEl) avgUsahaEl.textContent = avgUsaha;
     
@@ -329,7 +329,7 @@ function renderRekapDashboard() {
         <div class="rekap-info">
             <strong>${totalSLS}</strong> SLS | 
             <strong>${totalUsaha}</strong> Total Usaha (Real) | 
-            <strong>${totalUsahaGeoJSON}</strong> Usaha (GeoJSON) |
+            <strong>${totalUsahaGeoJSON}</strong> Perkiraan Usaha | 
             <strong>${totalMuatanGeoJSON}</strong> Muatan |
             Halaman <strong>${currentRekapPage}</strong> dari <strong>${totalPages || 1}</strong>
         </div>
@@ -342,8 +342,8 @@ function renderRekapDashboard() {
                         <th>Nama SLS</th>
                         <th>Kecamatan</th>
                         <th>Desa</th>
-                        <th>Usaha (Real)</th>
-                        <th>Usaha (GeoJSON)</th>
+                        <th>Total Usaha</th>
+                        <th>Perkiraan Usaha</th>
                         <th>Muatan</th>
                     </tr>
                 </thead>
@@ -372,10 +372,10 @@ function renderRekapDashboard() {
                     <td>${item.nmkec}</td>
                     <td>${item.nmdesa}</td>
                     <td style="text-align: center; font-weight: bold; color: #667eea;">${item.totalUsaha}</td>
-                    <td style="text-align: center; ${item.usahaGeoJSON > 0 ? 'color: #28a745;' : 'color: #999;'}">
+                    <td style="text-align: center; color: #28a745; font-weight: bold;">
                         ${item.usahaGeoJSON || '-'}
                     </td>
-                    <td style="text-align: center; ${item.muatanGeoJSON > 0 ? 'color: #dc3545;' : 'color: #999;'}">
+                    <td style="text-align: center; color: #dc3545; font-weight: bold;">
                         ${item.muatanGeoJSON || '-'}
                     </td>
                 </tr>
@@ -561,7 +561,7 @@ function tampilkanStatistik() {
                         <span> | Desa: ${wilayah.nmdesa || '-'}</span>
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 4px; font-size: 10px; color: #666;">
-                        <span>📊 GeoJSON: Usaha ${usahaGeo} | Muatan ${muatanGeo}</span>
+                        <span>📊 Perkiraan: ${usahaGeo} | Muatan: ${muatanGeo}</span>
                     </div>
                 </div>
             `;
@@ -610,7 +610,7 @@ function updatePopupWilayah() {
                     <small>📍 ${data.nmkec || '-'} | ${data.nmdesa || '-'}</small>
                     <hr style="margin:8px 0;">
                     <b>📊 Total Usaha: ${total}</b><br>
-                    <small>📦 GeoJSON: Usaha ${usahaGeo} | Muatan ${muatanGeo}</small>
+                    <small>📦 Perkiraan: ${usahaGeo} | Muatan: ${muatanGeo}</small>
                     <div style="margin-top:8px; padding:8px; background:#f0f9ff; border-radius:6px;">
                         <b>🌐 Penggunaan Internet:</b><br>
                         ✅ Menggunakan: ${menggunakanInternet} usaha<br>
@@ -734,8 +734,8 @@ if (exportExcelBtn) {
             'Kecamatan': item.nmkec,
             'Desa': item.nmdesa,
             'Total Usaha (Real)': item.totalUsaha,
-            'Usaha (GeoJSON)': item.usahaGeoJSON || 0,
-            'Muatan (GeoJSON)': item.muatanGeoJSON || 0,
+            'Perkiraan Usaha': item.usahaGeoJSON || 0,
+            'Muatan': item.muatanGeoJSON || 0,
             'Menggunakan Internet': item.menggunakanInternet,
             'Tidak Pakai Internet': item.tidakMenggunakanInternet,
             'Persen Internet': item.persenInternet + '%'
@@ -784,13 +784,14 @@ if (exportPDFBtn) {
                     th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 10px; }
                     th { background-color: #1a1a2e; color: white; }
                     .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #666; }
+                    .highlight { background-color: #fff3cd; }
                 </style>
             </head>
             <body>
                 <h2>Rekap Total Usaha per SLS</h2>
                 <p>Tanggal: ${new Date().toLocaleString('id-ID')}</p>
                 <p>Total SLS: ${dataToExport.length} | Total Usaha: ${dataToExport.reduce((s, i) => s + i.totalUsaha, 0)}</p>
-                <p>Total Usaha (GeoJSON): ${dataToExport.reduce((s, i) => s + (i.usahaGeoJSON || 0), 0)} | Total Muatan: ${dataToExport.reduce((s, i) => s + (i.muatanGeoJSON || 0), 0)}</p>
+                <p>Total Perkiraan Usaha: ${dataToExport.reduce((s, i) => s + (i.usahaGeoJSON || 0), 0)} | Total Muatan: ${dataToExport.reduce((s, i) => s + (i.muatanGeoJSON || 0), 0)}</p>
                 <table>
                     <thead>
                         <tr>
@@ -799,8 +800,8 @@ if (exportPDFBtn) {
                             <th>Nama SLS</th>
                             <th>Kecamatan</th>
                             <th>Desa</th>
-                            <th>Usaha (Real)</th>
-                            <th>Usaha (GeoJSON)</th>
+                            <th>Total Usaha</th>
+                            <th>Perkiraan Usaha</th>
                             <th>Muatan</th>
                         </tr>
                     </thead>
@@ -808,7 +809,9 @@ if (exportPDFBtn) {
         `;
         
         dataToExport.forEach((item, index) => {
-            htmlContent += `<tr>
+            const isDifferent = item.totalUsaha !== item.usahaGeoJSON;
+            const rowClass = isDifferent ? 'class="highlight"' : '';
+            htmlContent += `<tr ${rowClass}>
                 <td>${index + 1}</td>
                 <td>${item.idsls}</td>
                 <td>${item.nmsls}</td>
@@ -824,6 +827,9 @@ if (exportPDFBtn) {
                     </tbody>
                 </table>
                 <div class="footer">Dicetak dari Dashboard Monitoring Usaha</div>
+                <p style="font-size: 9px; color: #666; margin-top: 10px;">
+                    * Baris dengan latar kuning menandakan perbedaan antara Total Usaha dan Perkiraan Usaha
+                </p>
             </body>
             </html>
         `;
