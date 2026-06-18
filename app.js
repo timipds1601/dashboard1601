@@ -941,5 +941,37 @@ searchIdsls.addEventListener('input', (e) => {
     }
 });
 
+// ==================== FUNGSI TOGGLE NAVIGASI ====================
+window.toggleNav = function() {
+    const leftNav = document.getElementById('leftNav');
+    const collapseIcon = document.getElementById('collapseIcon');
+    
+    leftNav.classList.toggle('collapsed');
+    
+    // Update icon
+    if (collapseIcon) {
+        if (leftNav.classList.contains('collapsed')) {
+            collapseIcon.className = 'fas fa-chevron-right';
+        } else {
+            collapseIcon.className = 'fas fa-chevron-left';
+        }
+    }
+    
+    // Refresh map size setelah animasi selesai
+    setTimeout(() => {
+        map.invalidateSize();
+    }, 350);
+};
+
+// ==================== INISIALISASI ====================
+initNavigation();
+
+// Tambahkan event listener untuk keyboard shortcut (Ctrl+B)
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'b') {
+        e.preventDefault();
+        toggleNav();
+    }
+});
 // ==================== INISIALISASI ====================
 initNavigation();
