@@ -944,34 +944,60 @@ searchIdsls.addEventListener('input', (e) => {
 // ==================== FUNGSI TOGGLE NAVIGASI ====================
 window.toggleNav = function() {
     const leftNav = document.getElementById('leftNav');
-    const collapseIcon = document.getElementById('collapseIcon');
+    const toggleIcon = document.getElementById('toggleIcon');
     
+    if (!leftNav) return;
+    
+    // Toggle class collapsed
     leftNav.classList.toggle('collapsed');
     
     // Update icon
-    if (collapseIcon) {
+    if (toggleIcon) {
         if (leftNav.classList.contains('collapsed')) {
-            collapseIcon.className = 'fas fa-chevron-right';
+            toggleIcon.className = 'fas fa-chevron-right';
         } else {
-            collapseIcon.className = 'fas fa-chevron-left';
+            toggleIcon.className = 'fas fa-chevron-left';
         }
     }
     
     // Refresh map size setelah animasi selesai
     setTimeout(() => {
-        map.invalidateSize();
+        if (typeof map !== 'undefined' && map) {
+            map.invalidateSize();
+        }
     }, 350);
 };
 
-// ==================== INISIALISASI ====================
-initNavigation();
-
-// Tambahkan event listener untuk keyboard shortcut (Ctrl+B)
+// Keyboard shortcut: Ctrl + B untuk toggle
 document.addEventListener('keydown', function(e) {
-    if (e.ctrlKey && e.key === 'b') {
+    if (e.ctrlKey && (e.key === 'b' || e.key === 'B')) {
         e.preventDefault();
         toggleNav();
     }
 });
+
+// Hover tooltip untuk collapsed state
+const leftNav = document.getElementById('leftNav');
+if (leftNav) {
+    leftNav.addEventListener('mouseenter', function() {
+        if (this.classList.contains('collapsed')) {
+            const tooltip = document.getElementById('navTooltip');
+            if (tooltip) {
+                tooltip.style.opacity = '1';
+            }
+        }
+    });
+    
+    leftNav.addEventListener('mouseleave', function() {
+        const tooltip = document.getElementById('navTooltip');
+        if (tooltip) {
+            tooltip.style.opacity = '0';
+        }
+    });
+}
+
 // ==================== INISIALISASI ====================
 initNavigation();
+
+console.log('Dashboard siap!');
+console.log('💡 Tips: Tekan Ctrl+B untuk toggle navigasi');
