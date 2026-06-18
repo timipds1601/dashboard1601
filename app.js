@@ -42,7 +42,7 @@ const exportExcelBtn = document.getElementById('exportExcel');
 const exportPDFBtn = document.getElementById('exportPDF');
 const rekapTableContainer = document.getElementById('rekapTableContainer');
 
-// ==================== FUNGSI BANTU UNTUK MENDAPATKAN NAMA LENGKAP ====================
+// ==================== FUNGSI BANTU ====================
 function getDisplayName(usaha) {
     const namaPemilik = usaha.namaPemilik || usaha.pemilik || usaha.nama_pemilik || usaha.owner || '';
     const namaUsaha = usaha.namaUsaha || usaha.nama_usaha || usaha.nama || '';
@@ -96,18 +96,22 @@ function hitungStatistikWilayah() {
     statistikData = {};
     
     geojsonData.features.forEach(feature => {
-        const idsls = feature.properties.idsls || "unknown";
-        const nmsls = feature.properties.nmsls || "Unknown";
+        // Menggunakan IDSUB SLS sebagai key
+        const idsubsls = feature.properties.idsubsls || "unknown";
+        // Nama SUB SLS menggunakan nmsls (nama SLS)
+        const nmsubsls = feature.properties.nmsls || feature.properties.nmsubsls || "Unknown";
         const nmkec = feature.properties.nmkec || "-";
         const nmdesa = feature.properties.nmdesa || "-";
+        const idsls = feature.properties.idsls || "-";
         
         // Ambil data usaha dan muatan dari GeoJSON
         const usahaGeoJSON = parseInt(feature.properties.usaha) || 0;
         const muatanGeoJSON = parseInt(feature.properties.muatan) || 0;
         
-        statistikData[idsls] = {
+        statistikData[idsubsls] = {
+            idsubsls: idsubsls,
+            nmsubsls: nmsubsls,
             idsls: idsls,
-            nmsls: nmsls,
             nmkec: nmkec,
             nmdesa: nmdesa,
             total: 0,
@@ -128,16 +132,16 @@ function hitungStatistikWilayah() {
         const point = turf.point([parseFloat(usaha.longitude), parseFloat(usaha.latitude)]);
         
         geojsonData.features.forEach(feature => {
-            const idsls = feature.properties.idsls;
-            if (idsls && turf.booleanPointInPolygon(point, feature)) {
-                statistikData[idsls].total++;
+            const idsubsls = feature.properties.idsubsls;
+            if (idsubsls && turf.booleanPointInPolygon(point, feature)) {
+                statistikData[idsubsls].total++;
                 if (menggunakanInternet) {
-                    statistikData[idsls].menggunakanInternet++;
+                    statistikData[idsubsls].menggunakanInternet++;
                 }
-                if (!statistikData[idsls].kategori[kategori]) {
-                    statistikData[idsls].kategori[kategori] = 0;
+                if (!statistikData[idsubsls].kategori[kategori]) {
+                    statistikData[idsubsls].kategori[kategori] = 0;
                 }
-                statistikData[idsls].kategori[kategori]++;
+                statistikData[idsubsls].kategori[kategori]++;
             }
         });
     });
@@ -150,10 +154,11 @@ function hitungStatistikWilayah() {
 // Update data untuk rekap dashboard
 function updateRekapData() {
     rekapData = Object.values(statistikData)
-        .filter(wilayah => wilayah.idsls !== "unknown")
+        .filter(wilayah => wilayah.idsubsls !== "unknown")
         .map(wilayah => ({
+            idsubsls: wilayah.idsubsls,
+            nmsubsls: wilayah.nmsubsls,
             idsls: wilayah.idsls,
-            nmsls: wilayah.nmsls,
             nmkec: wilayah.nmkec,
             nmdesa: wilayah.nmdesa,
             totalUsaha: wilayah.total,
@@ -165,7 +170,7 @@ function updateRekapData() {
             usahaGeoJSON: wilayah.usahaGeoJSON || 0,
             muatanGeoJSON: wilayah.muatanGeoJSON || 0
         }))
-        .sort((a, b) => a.idsls.localeCompare(b.idsls));
+        .sort((a, b) => a.idsubsls.localeCompare(b.idsubsls));
 }
 
 // Update right navigasi statistik ringkas
@@ -186,7 +191,7 @@ function updateRightNavigation(filteredData) {
             <span class="stat-ringkas-value">${totalUsaha}</span>
         </div>
         <div class="stat-ringkas-item">
-            <span class="stat-ringkas-label"><i class="fas fa-building"></i> Total SLS</span>
+            <span class="stat-ringkas-label"><i class="fas fa-building"></i> Total SUB SLS</span>
             <span class="stat-ringkas-value">${totalSLS}</span>
         </div>
         <div class="stat-ringkas-item">
@@ -249,11 +254,11 @@ function updateRightNavigation(filteredData) {
     let topSLSHtml = '';
     topSLS.forEach((item, index) => {
         topSLSHtml += `
-            <div class="top-sls-item" onclick="zoomToSLS('${item.idsls}')">
+            <div class="top-sls-item" onclick="zoomToSLS('${item.idsubsls}')">
                 <div class="top-sls-rank">${index + 1}</div>
                 <div class="top-sls-info">
-                    <div class="top-sls-id">${item.idsls}</div>
-                    <div class="top-sls-name">${item.nmsls || '-'}</div>
+                    <div class="top-sls-id">${item.idsubsls}</div>
+                    <div class="top-sls-name">${item.nmsubsls || '-'}</div>
                 </div>
                 <div class="top-sls-count">${item.totalUsaha}</div>
             </div>
@@ -280,7 +285,7 @@ function updateRightNavigation(filteredData) {
     if (topSLSDiv) {
         topSLSDiv.innerHTML = `
             <div class="right-nav-subtitle">
-                <i class="fas fa-trophy"></i> Top 5 SLS Terbanyak
+                <i class="fas fa-trophy"></i> Top 5 SUB SLS Terbanyak
             </div>
             ${topSLSHtml}
         `;
@@ -294,10 +299,11 @@ function renderRekapDashboard() {
     let filteredData = [...rekapData];
     if (currentRekapSearch) {
         filteredData = filteredData.filter(item => 
-            item.idsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
-            item.nmsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
+            item.idsubsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
+            item.nmsubsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
             item.nmkec.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
-            item.nmdesa.toLowerCase().includes(currentRekapSearch.toLowerCase())
+            item.nmdesa.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
+            (item.idsls && item.idsls.toLowerCase().includes(currentRekapSearch.toLowerCase()))
         );
     }
     
@@ -327,7 +333,7 @@ function renderRekapDashboard() {
     
     let html = `
         <div class="rekap-info">
-            <strong>${totalSLS}</strong> SLS | 
+            <strong>${totalSLS}</strong> SUB SLS | 
             <strong>${totalUsaha}</strong> Total Usaha (Real) | 
             <strong>${totalUsahaGeoJSON}</strong> Perkiraan Usaha | 
             <strong>${totalMuatanGeoJSON}</strong> Muatan |
@@ -338,8 +344,9 @@ function renderRekapDashboard() {
                 <thead>
                     <tr>
                         <th>No</th>
+                        <th>ID SUB SLS</th>
+                        <th>Nama SUB SLS</th>
                         <th>IDSLS</th>
-                        <th>Nama SLS</th>
                         <th>Kecamatan</th>
                         <th>Desa</th>
                         <th>Total Usaha</th>
@@ -353,7 +360,7 @@ function renderRekapDashboard() {
     if (pageData.length === 0) {
         html += `
             <tr>
-                <td colspan="8" class="rekap-no-data">
+                <td colspan="9" class="rekap-no-data">
                     <i class="fas fa-database"></i> Tidak ada data ditemukan
                 </td>
             </tr>
@@ -365,10 +372,11 @@ function renderRekapDashboard() {
             const diffClass = isDifferent ? 'style="background-color: #fff3cd;"' : '';
             
             html += `
-                <tr onclick="zoomToSLS('${item.idsls}')" style="cursor: pointer;" ${diffClass}>
+                <tr onclick="zoomToSLS('${item.idsubsls}')" style="cursor: pointer;" ${diffClass}>
                     <td>${startIndex + index + 1}</td>
-                    <td><strong>${item.idsls}</strong></td>
-                    <td>${item.nmsls}</td>
+                    <td><strong>${item.idsubsls}</strong></td>
+                    <td>${item.nmsubsls}</td>
+                    <td style="font-size: 11px; color: #666;">${item.idsls || '-'}</td>
                     <td>${item.nmkec}</td>
                     <td>${item.nmdesa}</td>
                     <td style="text-align: center; font-weight: bold; color: #667eea;">${item.totalUsaha}</td>
@@ -405,18 +413,18 @@ function renderRekapDashboard() {
 }
 
 // Fungsi zoom ke SLS tertentu
-window.zoomToSLS = function(idsls) {
+window.zoomToSLS = function(idsubsls) {
     const petaNav = document.querySelector('.nav-item[data-menu="peta"]');
     if (petaNav) {
         petaNav.click();
     }
     
     setTimeout(() => {
-        if (regionLayers[idsls]) {
-            map.fitBounds(regionLayers[idsls].getBounds());
-            regionLayers[idsls].openPopup();
+        if (regionLayers[idsubsls]) {
+            map.fitBounds(regionLayers[idsubsls].getBounds());
+            regionLayers[idsubsls].openPopup();
         } else {
-            alert(`Wilayah dengan IDSLS "${idsls}" tidak ditemukan di peta`);
+            alert(`Wilayah dengan ID SUB SLS "${idsubsls}" tidak ditemukan di peta`);
         }
     }, 300);
 };
@@ -494,14 +502,14 @@ function tampilkanStatistik() {
         
         const filterInput = document.createElement('input');
         filterInput.id = 'filterStatIdsls';
-        filterInput.placeholder = '🔍 Cari IDSLS, Kecamatan, atau Desa...';
+        filterInput.placeholder = '🔍 Cari ID SUB SLS, Nama SLS, Kecamatan, atau Desa...';
         filterInput.className = 'stats-filter-input';
         filterInput.addEventListener('input', () => tampilkanStatistik());
         statsDiv.parentNode.insertBefore(filterInput, statsDiv);
         
         statsDiv.innerHTML = `
             <div class="stats-header" onclick="toggleStats()">
-                <span>📊 STATISTIK PER WILAYAH</span>
+                <span>📊 STATISTIK PER WILAYAH (SUB SLS)</span>
                 <span id="statsToggleIcon">▼</span>
             </div>
             <div id="statsContent" class="stats-content"></div>
@@ -523,23 +531,24 @@ function tampilkanStatistik() {
     
     const headerSpan = document.querySelector('#statsWilayah .stats-header span');
     if (headerSpan) {
-        headerSpan.innerHTML = `📊 STATISTIK PER WILAYAH (${totalWilayah} Wilayah)`;
+        headerSpan.innerHTML = `📊 STATISTIK PER WILAYAH (${totalWilayah} SUB SLS)`;
     }
     
     let filteredData = Object.values(statistikData);
     if (filterText) {
         filteredData = filteredData.filter(wilayah => 
-            (wilayah.idsls || "").toLowerCase().includes(filterText) ||
+            (wilayah.idsubsls || "").toLowerCase().includes(filterText) ||
+            (wilayah.nmsubsls || "").toLowerCase().includes(filterText) ||
             (wilayah.nmkec || "").toLowerCase().includes(filterText) ||
             (wilayah.nmdesa || "").toLowerCase().includes(filterText)
         );
     }
     
-    filteredData.sort((a, b) => (a.idsls || "").localeCompare(b.idsls || ""));
+    filteredData.sort((a, b) => (a.idsubsls || "").localeCompare(b.idsubsls || ""));
     
     let html = '';
     if (filterText && filteredData.length !== totalWilayah) {
-        html += `<div class="stats-filter-info">Menampilkan ${filteredData.length} dari ${totalWilayah} wilayah</div>`;
+        html += `<div class="stats-filter-info">Menampilkan ${filteredData.length} dari ${totalWilayah} sub SLS</div>`;
     }
     
     if (filteredData.length === 0) {
@@ -551,11 +560,12 @@ function tampilkanStatistik() {
             const muatanGeo = wilayah.muatanGeoJSON || 0;
             
             html += `
-                <div class="stat-item" onclick="zoomKeWilayah('${wilayah.idsls}')">
+                <div class="stat-item" onclick="zoomKeWilayah('${wilayah.idsubsls}')">
                     <div class="stat-header-row">
-                        <div class="stat-idsls">${wilayah.idsls || '-'}</div>
+                        <div class="stat-idsls">${wilayah.idsubsls || '-'}</div>
                         <div class="stat-total-badge">${total} usaha</div>
                     </div>
+                    <div class="stat-nmsls" style="font-size: 11px; color: #333;">${wilayah.nmsubsls || '-'}</div>
                     <div class="stat-location">
                         <span>📍 Kec: ${wilayah.nmkec || '-'}</span>
                         <span> | Desa: ${wilayah.nmdesa || '-'}</span>
@@ -572,10 +582,10 @@ function tampilkanStatistik() {
 }
 
 function updatePopupWilayah() {
-    Object.keys(regionLayers).forEach(idsls => {
-        const layer = regionLayers[idsls];
-        if (layer && statistikData[idsls]) {
-            const data = statistikData[idsls];
+    Object.keys(regionLayers).forEach(idsubsls => {
+        const layer = regionLayers[idsubsls];
+        if (layer && statistikData[idsubsls]) {
+            const data = statistikData[idsubsls];
             const total = data.total || 0;
             const menggunakanInternet = data.menggunakanInternet || 0;
             const tidakMenggunakanInternet = total - menggunakanInternet;
@@ -605,7 +615,8 @@ function updatePopupWilayah() {
             
             layer.bindPopup(`
                 <div style="min-width:280px; max-width:350px; max-height:400px; overflow-y:auto;">
-                    <b>🏢 ${data.nmsls || '-'}</b><br>
+                    <b>🏢 ${data.nmsubsls || '-'}</b><br>
+                    <small>ID SUB SLS: ${data.idsubsls || '-'}</small><br>
                     <small>IDSLS: ${data.idsls || '-'}</small><br>
                     <small>📍 ${data.nmkec || '-'} | ${data.nmdesa || '-'}</small>
                     <hr style="margin:8px 0;">
@@ -640,10 +651,10 @@ window.toggleStats = function() {
     }
 };
 
-window.zoomKeWilayah = function(idsls) {
-    if (regionLayers[idsls]) {
-        map.fitBounds(regionLayers[idsls].getBounds());
-        regionLayers[idsls].openPopup();
+window.zoomKeWilayah = function(idsubsls) {
+    if (regionLayers[idsubsls]) {
+        map.fitBounds(regionLayers[idsubsls].getBounds());
+        regionLayers[idsubsls].openPopup();
     }
 };
 
@@ -722,15 +733,18 @@ if (exportExcelBtn) {
         let dataToExport = [...rekapData];
         if (currentRekapSearch) {
             dataToExport = dataToExport.filter(item => 
-                item.idsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
-                item.nmsls.toLowerCase().includes(currentRekapSearch.toLowerCase())
+                item.idsubsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
+                item.nmsubsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
+                item.nmkec.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
+                item.nmdesa.toLowerCase().includes(currentRekapSearch.toLowerCase())
             );
         }
         
         const excelData = dataToExport.map((item, index) => ({
             'No': index + 1,
-            'IDSLS': item.idsls,
-            'Nama SLS': item.nmsls,
+            'ID SUB SLS': item.idsubsls,
+            'Nama SUB SLS': item.nmsubsls,
+            'IDSLS': item.idsls || '-',
             'Kecamatan': item.nmkec,
             'Desa': item.nmdesa,
             'Total Usaha (Real)': item.totalUsaha,
@@ -751,7 +765,7 @@ if (exportExcelBtn) {
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.href = url;
-        link.setAttribute('download', `rekap_usaha_per_sls_${new Date().toISOString().split('T')[0]}.csv`);
+        link.setAttribute('download', `rekap_usaha_per_subsls_${new Date().toISOString().split('T')[0]}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -766,8 +780,10 @@ if (exportPDFBtn) {
         let dataToExport = [...rekapData];
         if (currentRekapSearch) {
             dataToExport = dataToExport.filter(item => 
-                item.idsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
-                item.nmsls.toLowerCase().includes(currentRekapSearch.toLowerCase())
+                item.idsubsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
+                item.nmsubsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
+                item.nmkec.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
+                item.nmdesa.toLowerCase().includes(currentRekapSearch.toLowerCase())
             );
         }
         
@@ -776,28 +792,29 @@ if (exportPDFBtn) {
             <html>
             <head>
                 <meta charset="UTF-8">
-                <title>Rekap Total Usaha per SLS</title>
+                <title>Rekap Total Usaha per SUB SLS</title>
                 <style>
                     body { font-family: Arial, sans-serif; padding: 20px; }
                     h2 { color: #1a1a2e; text-align: center; }
                     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 10px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 9px; }
                     th { background-color: #1a1a2e; color: white; }
                     .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #666; }
                     .highlight { background-color: #fff3cd; }
                 </style>
             </head>
             <body>
-                <h2>Rekap Total Usaha per SLS</h2>
+                <h2>Rekap Total Usaha per SUB SLS</h2>
                 <p>Tanggal: ${new Date().toLocaleString('id-ID')}</p>
-                <p>Total SLS: ${dataToExport.length} | Total Usaha: ${dataToExport.reduce((s, i) => s + i.totalUsaha, 0)}</p>
+                <p>Total SUB SLS: ${dataToExport.length} | Total Usaha: ${dataToExport.reduce((s, i) => s + i.totalUsaha, 0)}</p>
                 <p>Total Perkiraan Usaha: ${dataToExport.reduce((s, i) => s + (i.usahaGeoJSON || 0), 0)} | Total Muatan: ${dataToExport.reduce((s, i) => s + (i.muatanGeoJSON || 0), 0)}</p>
                 <table>
                     <thead>
                         <tr>
                             <th>No</th>
+                            <th>ID SUB SLS</th>
+                            <th>Nama SUB SLS</th>
                             <th>IDSLS</th>
-                            <th>Nama SLS</th>
                             <th>Kecamatan</th>
                             <th>Desa</th>
                             <th>Total Usaha</th>
@@ -813,8 +830,9 @@ if (exportPDFBtn) {
             const rowClass = isDifferent ? 'class="highlight"' : '';
             htmlContent += `<tr ${rowClass}>
                 <td>${index + 1}</td>
-                <td>${item.idsls}</td>
-                <td>${item.nmsls}</td>
+                <td>${item.idsubsls}</td>
+                <td>${item.nmsubsls}</td>
+                <td>${item.idsls || '-'}</td>
                 <td>${item.nmkec}</td>
                 <td>${item.nmdesa}</td>
                 <td style="text-align:center">${item.totalUsaha}</td>
@@ -852,8 +870,9 @@ fetch('data/wilayah.geojson')
         geoJsonLayer = L.geoJSON(data, {
             style: { color: "#ff7800", weight: 2, fillOpacity: 0.1 },
             onEachFeature: (feature, layer) => {
-                const idsls = feature.properties.idsls || "Tanpa ID";
-                regionLayers[idsls] = layer;
+                // Gunakan IDSUB SLS sebagai identifier
+                const idsubsls = feature.properties.idsubsls || feature.properties.idsls || "Tanpa ID";
+                regionLayers[idsubsls] = layer;
             }
         }).addTo(map);
 
@@ -862,6 +881,7 @@ fetch('data/wilayah.geojson')
             console.log('Peta langsung zoom ke area GeoJSON');
         }
 
+        // Populate datalist dengan IDSUB SLS
         Object.keys(regionLayers).sort().forEach(id => {
             const option = document.createElement('option');
             option.value = id;
@@ -912,10 +932,12 @@ searchInput.addEventListener('input', (e) => {
     });
 });
 
+// Update search untuk IDSUB SLS
 searchIdsls.addEventListener('input', (e) => {
-    if (regionLayers[e.target.value]) {
-        map.fitBounds(regionLayers[e.target.value].getBounds());
-        regionLayers[e.target.value].openPopup();
+    const value = e.target.value;
+    if (regionLayers[value]) {
+        map.fitBounds(regionLayers[value].getBounds());
+        regionLayers[value].openPopup();
     }
 });
 
