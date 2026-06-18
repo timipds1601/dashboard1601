@@ -25,9 +25,13 @@ let geoJsonLayer = null;
 
 // Variabel untuk Rekap Dashboard
 let rekapData = [];
+let rekapByKecamatan = [];
 let currentRekapPage = 1;
+let currentKecamatanPage = 1;
 let itemsPerPage = 10;
+let itemsKecamatanPerPage = 10;
 let currentRekapSearch = '';
+let currentKecamatanSearch = '';
 
 // DOM Elements untuk peta
 const filterKategori = document.getElementById('filterKategori');
@@ -94,11 +98,11 @@ function hitungStatistikWilayah() {
     if (!geojsonData || allBusinessData.length === 0) return;
     
     statistikData = {};
+    const kecamatanMap = new Map();
     
     geojsonData.features.forEach(feature => {
         // Menggunakan IDSUB SLS sebagai key
         const idsubsls = feature.properties.idsubsls || "unknown";
-        // Nama SUB SLS menggunakan nmsls (nama SLS)
         const nmsubsls = feature.properties.nmsls || feature.properties.nmsubsls || "Unknown";
         const nmkec = feature.properties.nmkec || "-";
         const nmdesa = feature.properties.nmdesa || "-";
@@ -117,10 +121,28 @@ function hitungStatistikWilayah() {
             total: 0,
             menggunakanInternet: 0,
             kategori: {},
-            // Data dari GeoJSON
             usahaGeoJSON: usahaGeoJSON,
             muatanGeoJSON: muatanGeoJSON
         };
+        
+        // Inisialisasi data per kecamatan
+        if (!kecamatanMap.has(nmkec)) {
+            kecamatanMap.set(nmkec, {
+                nmkec: nmkec,
+                totalUsaha: 0,
+                totalUsahaGeoJSON: 0,
+                totalMuatanGeoJSON: 0,
+                jumlahSUB: 0,
+                desa: new Set(),
+                idsubslsList: []
+            });
+        }
+        const kecData = kecamatanMap.get(nmkec);
+        kecData.usahaGeoJSON += usahaGeoJSON;
+        kecData.muatanGeoJSON += muatanGeoJSON;
+        kecData.jumlahSUB++;
+        kecData.desa.add(nmdesa);
+        kecData.idsubslsList.push(idsubsls);
     });
     
     allBusinessData.forEach(usaha => {
@@ -133,6 +155,7 @@ function hitungStatistikWilayah() {
         
         geojsonData.features.forEach(feature => {
             const idsubsls = feature.properties.idsubsls;
+            const nmkec = feature.properties.nmkec || "-";
             if (idsubsls && turf.booleanPointInPolygon(point, feature)) {
                 statistikData[idsubsls].total++;
                 if (menggunakanInternet) {
@@ -142,9 +165,23 @@ function hitungStatistikWilayah() {
                     statistikData[idsubsls].kategori[kategori] = 0;
                 }
                 statistikData[idsubsls].kategori[kategori]++;
+                
+                // Update data per kecamatan
+                if (kecamatanMap.has(nmkec)) {
+                    const kecData = kecamatanMap.get(nmkec);
+                    kecData.totalUsaha++;
+                }
             }
         });
     });
+    
+    // Konversi kecamatanMap ke array
+    rekapByKecamatan = Array.from(kecamatanMap.values())
+        .map(kec => ({
+            ...kec,
+            desa: Array.from(kec.desa)
+        }))
+        .sort((a, b) => a.nmkec.localeCompare(b.nmkec));
     
     updateRekapData();
     tampilkanStatistik();
@@ -166,7 +203,6 @@ function updateRekapData() {
             tidakMenggunakanInternet: wilayah.total - wilayah.menggunakanInternet,
             persenInternet: wilayah.total > 0 ? ((wilayah.menggunakanInternet / wilayah.total) * 100).toFixed(1) : 0,
             kategori: wilayah.kategori,
-            // Data dari GeoJSON
             usahaGeoJSON: wilayah.usahaGeoJSON || 0,
             muatanGeoJSON: wilayah.muatanGeoJSON || 0
         }))
@@ -181,7 +217,6 @@ function updateRightNavigation(filteredData) {
     const menggunakanInternet = filteredData.reduce((sum, item) => sum + (item.menggunakanInternet || 0), 0);
     const persenInternet = totalUsaha > 0 ? ((menggunakanInternet / totalUsaha) * 100).toFixed(1) : 0;
     
-    // Total dari GeoJSON
     const totalUsahaGeoJSON = filteredData.reduce((sum, item) => sum + (item.usahaGeoJSON || 0), 0);
     const totalMuatanGeoJSON = filteredData.reduce((sum, item) => sum + (item.muatanGeoJSON || 0), 0);
     
@@ -193,6 +228,10 @@ function updateRightNavigation(filteredData) {
         <div class="stat-ringkas-item">
             <span class="stat-ringkas-label"><i class="fas fa-building"></i> Total SUB SLS</span>
             <span class="stat-ringkas-value">${totalSLS}</span>
+        </div>
+        <div class="stat-ringkas-item">
+            <span class="stat-ringkas-label"><i class="fas fa-city"></i> Total Kecamatan</span>
+            <span class="stat-ringkas-value">${rekapByKecamatan.length}</span>
         </div>
         <div class="stat-ringkas-item">
             <span class="stat-ringkas-label"><i class="fas fa-chart-line"></i> Rata-rata per SLS</span>
@@ -307,6 +346,14 @@ function renderRekapDashboard() {
         );
     }
     
+    // Filter data kecamatan
+    let filteredKecamatan = [...rekapByKecamatan];
+    if (currentKecamatanSearch) {
+        filteredKecamatan = filteredKecamatan.filter(item => 
+            item.nmkec.toLowerCase().includes(currentKecamatanSearch.toLowerCase())
+        );
+    }
+    
     updateRightNavigation(filteredData);
     
     const totalItems = filteredData.length;
@@ -314,6 +361,13 @@ function renderRekapDashboard() {
     const startIndex = (currentRekapPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const pageData = filteredData.slice(startIndex, endIndex);
+    
+    // Pagination untuk kecamatan
+    const totalKecItems = filteredKecamatan.length;
+    const totalKecPages = Math.ceil(totalKecItems / itemsKecamatanPerPage);
+    const startKecIndex = (currentKecamatanPage - 1) * itemsKecamatanPerPage;
+    const endKecIndex = startKecIndex + itemsKecamatanPerPage;
+    const pageKecData = filteredKecamatan.slice(startKecIndex, endKecIndex);
     
     const totalUsaha = filteredData.reduce((sum, item) => sum + item.totalUsaha, 0);
     const totalSLS = filteredData.length;
@@ -337,24 +391,101 @@ function renderRekapDashboard() {
             <strong>${totalUsaha}</strong> Total Usaha (Real) | 
             <strong>${totalUsahaGeoJSON}</strong> Perkiraan Usaha | 
             <strong>${totalMuatanGeoJSON}</strong> Muatan |
+            <strong>${rekapByKecamatan.length}</strong> Kecamatan |
             Halaman <strong>${currentRekapPage}</strong> dari <strong>${totalPages || 1}</strong>
         </div>
-        <div class="rekap-table-wrapper">
-            <table class="rekap-table">
-                <thead>
-                    <tr>
-                        <th>No</th>
-                        <th>ID SUB SLS</th>
-                        <th>Nama SUB SLS</th>
-                        <th>IDSLS</th>
-                        <th>Kecamatan</th>
-                        <th>Desa</th>
-                        <th>Total Usaha</th>
-                        <th>Perkiraan Usaha</th>
-                        <th>Muatan</th>
-                    </tr>
-                </thead>
-                <tbody>
+        
+        <!-- TABEL REKAP PER KECAMATAN -->
+        <div style="background: #f8f9fa; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <h4 style="margin: 0; color: #1a1a2e; font-size: 14px;">
+                    <i class="fas fa-city" style="color: #667eea;"></i> Rekap per Kecamatan
+                </h4>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <div style="position: relative; min-width: 200px;">
+                        <i class="fas fa-search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #999;"></i>
+                        <input type="text" id="searchKecamatan" placeholder="Cari kecamatan..." 
+                               style="padding: 6px 10px 6px 30px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; width: 100%;">
+                    </div>
+                </div>
+            </div>
+            <div style="overflow-x: auto; margin-top: 10px;">
+                <table class="rekap-table" style="min-width: 500px; font-size: 12px;">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Kecamatan</th>
+                            <th>Jumlah SUB SLS</th>
+                            <th>Total Usaha (Real)</th>
+                            <th>Perkiraan Usaha</th>
+                            <th>Muatan</th>
+                            <th>Desa</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+    `;
+    
+    if (pageKecData.length === 0) {
+        html += `
+            <tr>
+                <td colspan="7" style="text-align:center; padding:20px; color:#999;">
+                    <i class="fas fa-database"></i> Tidak ada data kecamatan
+                </td>
+            </tr>
+        `;
+    } else {
+        pageKecData.forEach((item, index) => {
+            const isDifferent = item.totalUsaha !== item.totalUsahaGeoJSON;
+            const diffClass = isDifferent ? 'style="background-color: #fff3cd;"' : '';
+            html += `
+                <tr ${diffClass}>
+                    <td>${startKecIndex + index + 1}</td>
+                    <td><strong>${item.nmkec}</strong></td>
+                    <td style="text-align:center;">${item.jumlahSUB}</td>
+                    <td style="text-align:center; font-weight: bold; color: #667eea;">${item.totalUsaha}</td>
+                    <td style="text-align:center; color: #28a745;">${item.totalUsahaGeoJSON || 0}</td>
+                    <td style="text-align:center; color: #dc3545;">${item.totalMuatanGeoJSON || 0}</td>
+                    <td style="font-size: 10px; color: #666;">${item.desa.join(', ')}</td>
+                </tr>
+            `;
+        });
+    }
+    
+    html += `
+                    </tbody>
+                </table>
+            </div>
+            ${totalKecPages > 1 ? `
+            <div class="rekap-pagination" style="padding: 10px 0; border-top: 1px solid #e0e0e0; margin-top: 10px;">
+                ${Array.from({ length: Math.min(totalKecPages, 5) }, (_, i) => i + 1).map(pageNum => `
+                    <button class="${pageNum === currentKecamatanPage ? 'active' : ''}" onclick="goToKecamatanPage(${pageNum})">${pageNum}</button>
+                `).join('')}
+                ${totalKecPages > 5 ? `<span style="padding: 6px;">...</span><button onclick="goToKecamatanPage(${totalKecPages})">${totalKecPages}</button>` : ''}
+            </div>
+            ` : ''}
+        </div>
+        
+        <!-- TABEL REKAP PER SUB SLS -->
+        <div style="margin-top: 10px;">
+            <h4 style="margin: 0 0 10px 0; color: #1a1a2e; font-size: 14px;">
+                <i class="fas fa-layer-group" style="color: #667eea;"></i> Detail per SUB SLS
+            </h4>
+            <div class="rekap-table-wrapper">
+                <table class="rekap-table">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>ID SUB SLS</th>
+                            <th>Nama SUB SLS</th>
+                            <th>IDSLS</th>
+                            <th>Kecamatan</th>
+                            <th>Desa</th>
+                            <th>Total Usaha</th>
+                            <th>Perkiraan Usaha</th>
+                            <th>Muatan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
     `;
     
     if (pageData.length === 0) {
@@ -367,7 +498,6 @@ function renderRekapDashboard() {
         `;
     } else {
         pageData.forEach((item, index) => {
-            // Warna untuk menandai perbedaan data
             const isDifferent = item.totalUsaha !== item.usahaGeoJSON;
             const diffClass = isDifferent ? 'style="background-color: #fff3cd;"' : '';
             
@@ -392,8 +522,9 @@ function renderRekapDashboard() {
     }
     
     html += `
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         </div>
     `;
     
@@ -410,7 +541,23 @@ function renderRekapDashboard() {
     }
     
     rekapTableContainer.innerHTML = html;
+    
+    // Event listener untuk search kecamatan
+    const searchKecamatan = document.getElementById('searchKecamatan');
+    if (searchKecamatan) {
+        searchKecamatan.addEventListener('input', (e) => {
+            currentKecamatanSearch = e.target.value;
+            currentKecamatanPage = 1;
+            renderRekapDashboard();
+        });
+    }
 }
+
+// Fungsi ganti halaman kecamatan
+window.goToKecamatanPage = function(page) {
+    currentKecamatanPage = page;
+    renderRekapDashboard();
+};
 
 // Fungsi zoom ke SLS tertentu
 window.zoomToSLS = function(idsubsls) {
@@ -801,6 +948,7 @@ if (exportPDFBtn) {
                     th { background-color: #1a1a2e; color: white; }
                     .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #666; }
                     .highlight { background-color: #fff3cd; }
+                    .section-title { background: #f0f0f0; padding: 10px; margin-top: 20px; font-weight: bold; }
                 </style>
             </head>
             <body>
@@ -808,6 +956,40 @@ if (exportPDFBtn) {
                 <p>Tanggal: ${new Date().toLocaleString('id-ID')}</p>
                 <p>Total SUB SLS: ${dataToExport.length} | Total Usaha: ${dataToExport.reduce((s, i) => s + i.totalUsaha, 0)}</p>
                 <p>Total Perkiraan Usaha: ${dataToExport.reduce((s, i) => s + (i.usahaGeoJSON || 0), 0)} | Total Muatan: ${dataToExport.reduce((s, i) => s + (i.muatanGeoJSON || 0), 0)}</p>
+                
+                <div class="section-title">REKAP PER KECAMATAN</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Kecamatan</th>
+                            <th>Jumlah SUB SLS</th>
+                            <th>Total Usaha</th>
+                            <th>Perkiraan Usaha</th>
+                            <th>Muatan</th>
+                            <th>Desa</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        rekapByKecamatan.forEach((item, index) => {
+            htmlContent += `<tr>
+                <td>${index + 1}</td>
+                <td>${item.nmkec}</td>
+                <td style="text-align:center">${item.jumlahSUB}</td>
+                <td style="text-align:center">${item.totalUsaha}</td>
+                <td style="text-align:center">${item.totalUsahaGeoJSON || 0}</td>
+                <td style="text-align:center">${item.totalMuatanGeoJSON || 0}</td>
+                <td>${item.desa.join(', ')}</td>
+            </tr>`;
+        });
+        
+        htmlContent += `
+                    </tbody>
+                </table>
+                
+                <div class="section-title">DETAIL PER SUB SLS</div>
                 <table>
                     <thead>
                         <tr>
@@ -870,7 +1052,6 @@ fetch('data/wilayah.geojson')
         geoJsonLayer = L.geoJSON(data, {
             style: { color: "#ff7800", weight: 2, fillOpacity: 0.1 },
             onEachFeature: (feature, layer) => {
-                // Gunakan IDSUB SLS sebagai identifier
                 const idsubsls = feature.properties.idsubsls || feature.properties.idsls || "Tanpa ID";
                 regionLayers[idsubsls] = layer;
             }
@@ -881,7 +1062,6 @@ fetch('data/wilayah.geojson')
             console.log('Peta langsung zoom ke area GeoJSON');
         }
 
-        // Populate datalist dengan IDSUB SLS
         Object.keys(regionLayers).sort().forEach(id => {
             const option = document.createElement('option');
             option.value = id;
@@ -932,7 +1112,6 @@ searchInput.addEventListener('input', (e) => {
     });
 });
 
-// Update search untuk IDSUB SLS
 searchIdsls.addEventListener('input', (e) => {
     const value = e.target.value;
     if (regionLayers[value]) {
@@ -948,10 +1127,8 @@ window.toggleNav = function() {
     
     if (!leftNav) return;
     
-    // Toggle class collapsed
     leftNav.classList.toggle('collapsed');
     
-    // Update icon
     if (toggleIcon) {
         if (leftNav.classList.contains('collapsed')) {
             toggleIcon.className = 'fas fa-chevron-right';
@@ -960,7 +1137,6 @@ window.toggleNav = function() {
         }
     }
     
-    // Refresh map size setelah animasi selesai
     setTimeout(() => {
         if (typeof map !== 'undefined' && map) {
             map.invalidateSize();
