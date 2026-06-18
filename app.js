@@ -21,7 +21,7 @@ let currentlySelectedMarker = null;
 const regionLayers = {};
 let geojsonData = null;
 let statistikData = {};
-let geoJsonLayer = null; // Untuk menyimpan layer GeoJSON
+let geoJsonLayer = null;
 
 // Variabel untuk Rekap Dashboard
 let rekapData = [];
@@ -76,7 +76,6 @@ function initNavigation() {
                 rekapContent.style.display = 'none';
                 setTimeout(() => {
                     map.invalidateSize();
-                    // Kembalikan ke batas GeoJSON jika ada
                     if (geoJsonLayer && geoJsonLayer.getBounds().isValid()) {
                         map.fitBounds(geoJsonLayer.getBounds());
                     }
@@ -102,6 +101,10 @@ function hitungStatistikWilayah() {
         const nmkec = feature.properties.nmkec || "-";
         const nmdesa = feature.properties.nmdesa || "-";
         
+        // Ambil data usaha dan muatan dari GeoJSON
+        const usahaGeoJSON = parseInt(feature.properties.usaha) || 0;
+        const muatanGeoJSON = parseInt(feature.properties.muatan) || 0;
+        
         statistikData[idsls] = {
             idsls: idsls,
             nmsls: nmsls,
@@ -109,7 +112,10 @@ function hitungStatistikWilayah() {
             nmdesa: nmdesa,
             total: 0,
             menggunakanInternet: 0,
-            kategori: {}
+            kategori: {},
+            // Data dari GeoJSON
+            usahaGeoJSON: usahaGeoJSON,
+            muatanGeoJSON: muatanGeoJSON
         };
     });
     
@@ -154,7 +160,10 @@ function updateRekapData() {
             menggunakanInternet: wilayah.menggunakanInternet,
             tidakMenggunakanInternet: wilayah.total - wilayah.menggunakanInternet,
             persenInternet: wilayah.total > 0 ? ((wilayah.menggunakanInternet / wilayah.total) * 100).toFixed(1) : 0,
-            kategori: wilayah.kategori
+            kategori: wilayah.kategori,
+            // Data dari GeoJSON
+            usahaGeoJSON: wilayah.usahaGeoJSON || 0,
+            muatanGeoJSON: wilayah.muatanGeoJSON || 0
         }))
         .sort((a, b) => a.idsls.localeCompare(b.idsls));
 }
@@ -166,6 +175,10 @@ function updateRightNavigation(filteredData) {
     const avgUsaha = totalSLS > 0 ? (totalUsaha / totalSLS).toFixed(1) : 0;
     const menggunakanInternet = filteredData.reduce((sum, item) => sum + (item.menggunakanInternet || 0), 0);
     const persenInternet = totalUsaha > 0 ? ((menggunakanInternet / totalUsaha) * 100).toFixed(1) : 0;
+    
+    // Total dari GeoJSON
+    const totalUsahaGeoJSON = filteredData.reduce((sum, item) => sum + (item.usahaGeoJSON || 0), 0);
+    const totalMuatanGeoJSON = filteredData.reduce((sum, item) => sum + (item.muatanGeoJSON || 0), 0);
     
     const statRingkasHtml = `
         <div class="stat-ringkas-item">
@@ -183,6 +196,14 @@ function updateRightNavigation(filteredData) {
         <div class="stat-ringkas-item">
             <span class="stat-ringkas-label"><i class="fas fa-wifi"></i> Pengguna Internet</span>
             <span class="stat-ringkas-value">${menggunakanInternet} (${persenInternet}%)</span>
+        </div>
+        <div class="stat-ringkas-item" style="border-top: 1px solid #e0e0e0; margin-top: 8px; padding-top: 8px;">
+            <span class="stat-ringkas-label"><i class="fas fa-database"></i> Data GeoJSON</span>
+            <span class="stat-ringkas-value" style="font-size: 13px;">Usaha: ${totalUsahaGeoJSON}</span>
+        </div>
+        <div class="stat-ringkas-item" style="margin-top: -5px;">
+            <span class="stat-ringkas-label" style="color: #666; font-size: 10px;">Muatan</span>
+            <span class="stat-ringkas-value" style="font-size: 13px;">${totalMuatanGeoJSON}</span>
         </div>
     `;
     
@@ -291,20 +312,25 @@ function renderRekapDashboard() {
     const totalUsaha = filteredData.reduce((sum, item) => sum + item.totalUsaha, 0);
     const totalSLS = filteredData.length;
     const avgUsaha = totalSLS > 0 ? (totalUsaha / totalSLS).toFixed(1) : 0;
+    const totalUsahaGeoJSON = filteredData.reduce((sum, item) => sum + (item.usahaGeoJSON || 0), 0);
+    const totalMuatanGeoJSON = filteredData.reduce((sum, item) => sum + (item.muatanGeoJSON || 0), 0);
     
     const totalSLSEl = document.getElementById('totalSLS');
     const totalUsahaAllEl = document.getElementById('totalUsahaAll');
     const avgUsahaEl = document.getElementById('avgUsaha');
     
     if (totalSLSEl) totalSLSEl.textContent = totalSLS;
-    if (totalUsahaAllEl) totalUsahaAllEl.textContent = totalUsaha;
+    if (totalUsahaAllEl) {
+        totalUsahaAllEl.textContent = `${totalUsaha} (GeoJSON: ${totalUsahaGeoJSON})`;
+    }
     if (avgUsahaEl) avgUsahaEl.textContent = avgUsaha;
     
     let html = `
         <div class="rekap-info">
             <strong>${totalSLS}</strong> SLS | 
-            <strong>${totalUsaha}</strong> Total Usaha | 
-            Rata-rata <strong>${avgUsaha}</strong> per SLS |
+            <strong>${totalUsaha}</strong> Total Usaha (Real) | 
+            <strong>${totalUsahaGeoJSON}</strong> Usaha (GeoJSON) |
+            <strong>${totalMuatanGeoJSON}</strong> Muatan |
             Halaman <strong>${currentRekapPage}</strong> dari <strong>${totalPages || 1}</strong>
         </div>
         <div class="rekap-table-wrapper">
@@ -316,7 +342,9 @@ function renderRekapDashboard() {
                         <th>Nama SLS</th>
                         <th>Kecamatan</th>
                         <th>Desa</th>
-                        <th>Total Usaha</th>
+                        <th>Usaha (Real)</th>
+                        <th>Usaha (GeoJSON)</th>
+                        <th>Muatan</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -325,21 +353,31 @@ function renderRekapDashboard() {
     if (pageData.length === 0) {
         html += `
             <tr>
-                <td colspan="6" class="rekap-no-data">
+                <td colspan="8" class="rekap-no-data">
                     <i class="fas fa-database"></i> Tidak ada data ditemukan
                 </td>
             </tr>
         `;
     } else {
         pageData.forEach((item, index) => {
+            // Warna untuk menandai perbedaan data
+            const isDifferent = item.totalUsaha !== item.usahaGeoJSON;
+            const diffClass = isDifferent ? 'style="background-color: #fff3cd;"' : '';
+            
             html += `
-                <tr onclick="zoomToSLS('${item.idsls}')" style="cursor: pointer;">
+                <tr onclick="zoomToSLS('${item.idsls}')" style="cursor: pointer;" ${diffClass}>
                     <td>${startIndex + index + 1}</td>
                     <td><strong>${item.idsls}</strong></td>
                     <td>${item.nmsls}</td>
                     <td>${item.nmkec}</td>
                     <td>${item.nmdesa}</td>
                     <td style="text-align: center; font-weight: bold; color: #667eea;">${item.totalUsaha}</td>
+                    <td style="text-align: center; ${item.usahaGeoJSON > 0 ? 'color: #28a745;' : 'color: #999;'}">
+                        ${item.usahaGeoJSON || '-'}
+                    </td>
+                    <td style="text-align: center; ${item.muatanGeoJSON > 0 ? 'color: #dc3545;' : 'color: #999;'}">
+                        ${item.muatanGeoJSON || '-'}
+                    </td>
                 </tr>
             `;
         });
@@ -509,6 +547,8 @@ function tampilkanStatistik() {
     } else {
         filteredData.forEach(wilayah => {
             const total = wilayah.total || 0;
+            const usahaGeo = wilayah.usahaGeoJSON || 0;
+            const muatanGeo = wilayah.muatanGeoJSON || 0;
             
             html += `
                 <div class="stat-item" onclick="zoomKeWilayah('${wilayah.idsls}')">
@@ -519,6 +559,9 @@ function tampilkanStatistik() {
                     <div class="stat-location">
                         <span>📍 Kec: ${wilayah.nmkec || '-'}</span>
                         <span> | Desa: ${wilayah.nmdesa || '-'}</span>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 4px; font-size: 10px; color: #666;">
+                        <span>📊 GeoJSON: Usaha ${usahaGeo} | Muatan ${muatanGeo}</span>
                     </div>
                 </div>
             `;
@@ -537,6 +580,8 @@ function updatePopupWilayah() {
             const menggunakanInternet = data.menggunakanInternet || 0;
             const tidakMenggunakanInternet = total - menggunakanInternet;
             const persenInternet = total > 0 ? ((menggunakanInternet / total) * 100).toFixed(1) : 0;
+            const usahaGeo = data.usahaGeoJSON || 0;
+            const muatanGeo = data.muatanGeoJSON || 0;
             
             let daftarUsahaHtml = '';
             if (total > 0 && total <= 10) {
@@ -564,7 +609,8 @@ function updatePopupWilayah() {
                     <small>IDSLS: ${data.idsls || '-'}</small><br>
                     <small>📍 ${data.nmkec || '-'} | ${data.nmdesa || '-'}</small>
                     <hr style="margin:8px 0;">
-                    <b>📊 Total Usaha: ${total}</b>
+                    <b>📊 Total Usaha: ${total}</b><br>
+                    <small>📦 GeoJSON: Usaha ${usahaGeo} | Muatan ${muatanGeo}</small>
                     <div style="margin-top:8px; padding:8px; background:#f0f9ff; border-radius:6px;">
                         <b>🌐 Penggunaan Internet:</b><br>
                         ✅ Menggunakan: ${menggunakanInternet} usaha<br>
@@ -687,7 +733,9 @@ if (exportExcelBtn) {
             'Nama SLS': item.nmsls,
             'Kecamatan': item.nmkec,
             'Desa': item.nmdesa,
-            'Total Usaha': item.totalUsaha,
+            'Total Usaha (Real)': item.totalUsaha,
+            'Usaha (GeoJSON)': item.usahaGeoJSON || 0,
+            'Muatan (GeoJSON)': item.muatanGeoJSON || 0,
             'Menggunakan Internet': item.menggunakanInternet,
             'Tidak Pakai Internet': item.tidakMenggunakanInternet,
             'Persen Internet': item.persenInternet + '%'
@@ -733,7 +781,7 @@ if (exportPDFBtn) {
                     body { font-family: Arial, sans-serif; padding: 20px; }
                     h2 { color: #1a1a2e; text-align: center; }
                     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 11px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 10px; }
                     th { background-color: #1a1a2e; color: white; }
                     .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #666; }
                 </style>
@@ -742,9 +790,19 @@ if (exportPDFBtn) {
                 <h2>Rekap Total Usaha per SLS</h2>
                 <p>Tanggal: ${new Date().toLocaleString('id-ID')}</p>
                 <p>Total SLS: ${dataToExport.length} | Total Usaha: ${dataToExport.reduce((s, i) => s + i.totalUsaha, 0)}</p>
+                <p>Total Usaha (GeoJSON): ${dataToExport.reduce((s, i) => s + (i.usahaGeoJSON || 0), 0)} | Total Muatan: ${dataToExport.reduce((s, i) => s + (i.muatanGeoJSON || 0), 0)}</p>
                 <table>
                     <thead>
-                        <tr><th>No</th><th>IDSLS</th><th>Nama SLS</th><th>Kecamatan</th><th>Desa</th><th>Total Usaha</th></tr>
+                        <tr>
+                            <th>No</th>
+                            <th>IDSLS</th>
+                            <th>Nama SLS</th>
+                            <th>Kecamatan</th>
+                            <th>Desa</th>
+                            <th>Usaha (Real)</th>
+                            <th>Usaha (GeoJSON)</th>
+                            <th>Muatan</th>
+                        </tr>
                     </thead>
                     <tbody>
         `;
@@ -757,6 +815,8 @@ if (exportPDFBtn) {
                 <td>${item.nmkec}</td>
                 <td>${item.nmdesa}</td>
                 <td style="text-align:center">${item.totalUsaha}</td>
+                <td style="text-align:center">${item.usahaGeoJSON || 0}</td>
+                <td style="text-align:center">${item.muatanGeoJSON || 0}</td>
             </tr>`;
         });
         
@@ -777,13 +837,12 @@ if (exportPDFBtn) {
 }
 
 // ==================== LOAD DATA ====================
-// LOAD GEOJSON - DENGAN AUTO ZOOM KE WILAYAH GEOJSON
+// LOAD GEOJSON
 fetch('data/wilayah.geojson')
     .then(res => res.json())
     .then(data => {
         geojsonData = data;
         
-        // Simpan layer GeoJSON ke variabel global
         geoJsonLayer = L.geoJSON(data, {
             style: { color: "#ff7800", weight: 2, fillOpacity: 0.1 },
             onEachFeature: (feature, layer) => {
@@ -792,8 +851,6 @@ fetch('data/wilayah.geojson')
             }
         }).addTo(map);
 
-        // AUTO ZOOM KE BATAS GEOJSON
-        // Fitur ini akan membuat peta langsung zoom ke area yang memiliki GeoJSON
         if (geoJsonLayer.getBounds().isValid()) {
             map.fitBounds(geoJsonLayer.getBounds());
             console.log('Peta langsung zoom ke area GeoJSON');
