@@ -1030,3 +1030,52 @@ body {
         flex-direction: column;
     }
 }
+
+/* Tambahkan di bagian akhir style.css */
+
+/* ========== REKAP KECAMATAN & SUB SLS ========== */
+.panel-body-rekap-kecamatan,
+.panel-body-rekap-subsls {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 20px;
+    gap: 15px;
+}
+
+/* Warna berbeda untuk setiap menu */
+#rekapKecamatanContent .panel-header h3 i {
+    color: #28a745;
+}
+
+#rekapSubslsContent .panel-header h3 i {
+    color: #667eea;
+}
+
+/* Kecamatan stat cards dengan warna hijau */
+#rekapStatsKecamatan .stat-card i {
+    color: #28a745;
+}
+
+/* SUB SLS stat cards dengan warna biru */
+#rekapStatsSubsls .stat-card i {
+    color: #667eea;
+}
+
+/* Style untuk tombol aktif di menu */
+.nav-item.active[data-menu="rekap-kecamatan"] {
+    background: linear-gradient(135deg, #28a745 0%, #1a7a3a 100%);
+}
+
+.nav-item.active[data-menu="rekap-subsls"] {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Responsive untuk 2 menu rekap */
+@media (max-width: 768px) {
+    .panel-body-rekap-kecamatan,
+    .panel-body-rekap-subsls {
+        padding: 10px;
+    }
+}
