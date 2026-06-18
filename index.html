@@ -14,15 +14,17 @@
 <body>
     <!-- LEFT NAVIGATION -->
     <div class="left-nav" id="leftNav">
-        <!-- Tombol Toggle -->
-        <div class="nav-toggle" id="navToggle" onclick="toggleNav()">
-            <i class="fas fa-bars"></i>
+        <div class="nav-header">
+            <div class="nav-header-content">
+                <h2><i class="fas fa-chart-line"></i> <span class="nav-text">Dashboard</span></h2>
+                <p class="nav-text">Monitoring Usaha</p>
+            </div>
+            <!-- Tombol Toggle di Header -->
+            <button class="nav-toggle-btn" id="navToggleBtn" onclick="toggleNav()" title="Toggle Navigation">
+                <i class="fas fa-chevron-left" id="toggleIcon"></i>
+            </button>
         </div>
         
-        <div class="nav-header">
-            <h2><i class="fas fa-chart-line"></i> <span class="nav-text">Dashboard</span></h2>
-            <p class="nav-text">Monitoring Usaha</p>
-        </div>
         <nav class="nav-menu">
             <div class="nav-item active" data-menu="peta">
                 <i class="fas fa-map-marked-alt"></i>
@@ -34,12 +36,9 @@
             </div>
         </nav>
         
-        <!-- Footer Nav dengan tombol collapse di bawah -->
-        <div class="nav-footer">
-            <div class="nav-item collapse-btn" onclick="toggleNav()">
-                <i class="fas fa-chevron-left" id="collapseIcon"></i>
-                <span class="nav-text">Collapse</span>
-            </div>
+        <!-- Tooltip untuk collapsed state -->
+        <div class="nav-tooltip" id="navTooltip">
+            <span>Klik untuk expand</span>
         </div>
     </div>
 
