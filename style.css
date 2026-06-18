@@ -70,10 +70,6 @@ body {
     pointer-events: auto;
 }
 
-.left-nav.collapsed .nav-tooltip:hover {
-    opacity: 1;
-}
-
 /* Tooltip untuk collapsed state */
 .nav-tooltip {
     position: fixed;
@@ -233,10 +229,6 @@ body {
     box-shadow: 0 4px 15px rgba(102,126,234,0.3);
 }
 
-.nav-item.active:hover {
-    opacity: 0.9;
-}
-
 /* ========== MAIN CONTAINER ========== */
 .main-container {
     flex: 1;
@@ -275,6 +267,13 @@ body {
 
 .panel-header h3 i {
     margin-right: 10px;
+}
+
+#rekapKecamatanContent .panel-header h3 i {
+    color: #28a745;
+}
+
+#rekapSubslsContent .panel-header h3 i {
     color: #667eea;
 }
 
@@ -346,10 +345,6 @@ body {
     font-size: 12px;
     font-weight: 600;
     color: #555;
-}
-
-.filter-group label i {
-    margin-right: 5px;
 }
 
 #filterKategori {
@@ -434,8 +429,7 @@ body {
 }
 
 /* ========== REKAP KECAMATAN & SUB SLS ========== */
-.panel-body-rekap-kecamatan,
-.panel-body-rekap-subsls {
+.panel-body-rekap-kecamatan {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -444,9 +438,12 @@ body {
     gap: 15px;
 }
 
-/* Rekap SUB SLS dengan right navigation */
+/* ========== REKAP SUB SLS DENGAN RIGHT NAV ========== */
 .panel-body-rekap-subsls {
+    flex: 1;
+    display: flex;
     flex-direction: row;
+    overflow: hidden;
     padding: 20px;
     gap: 15px;
 }
@@ -457,25 +454,7 @@ body {
     flex-direction: column;
     overflow: hidden;
     gap: 15px;
-}
-
-/* Warna berbeda untuk setiap menu */
-#rekapKecamatanContent .panel-header h3 i {
-    color: #28a745;
-}
-
-#rekapSubslsContent .panel-header h3 i {
-    color: #667eea;
-}
-
-/* Kecamatan stat cards dengan warna hijau */
-#rekapStatsKecamatan .stat-card i {
-    color: #28a745;
-}
-
-/* SUB SLS stat cards dengan warna biru */
-#rekapStatsSubsls .stat-card i {
-    color: #667eea;
+    min-width: 0;
 }
 
 /* ========== REKAP CONTROLS ========== */
@@ -575,6 +554,14 @@ body {
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
+#rekapStatsKecamatan .stat-card i {
+    color: #28a745;
+}
+
+#rekapStatsSubsls .stat-card i {
+    color: #667eea;
+}
+
 .stat-card i {
     font-size: 2rem;
 }
@@ -647,12 +634,6 @@ body {
 .rekap-table tbody tr:hover {
     background: #f8f9ff;
     cursor: pointer;
-}
-
-.rekap-table td:last-child {
-    font-weight: bold;
-    color: #667eea;
-    text-align: center;
 }
 
 .rekap-table tbody tr td:last-child {
@@ -728,6 +709,7 @@ body {
 /* ========== RIGHT NAVIGASI UNTUK SUB SLS ========== */
 .rekap-right-nav {
     width: 320px;
+    min-width: 320px;
     background: white;
     border-left: 1px solid #e0e0e0;
     display: flex;
@@ -1019,162 +1001,18 @@ body {
     margin-right: 8px;
 }
 
-.stat-internet {
-    background: #f0f9ff;
-    border-radius: 6px;
-    padding: 6px 8px;
-    margin: 6px 0;
-    border-left: 3px solid #2196f3;
-}
-
-.internet-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 10px;
-    margin-bottom: 3px;
-}
-
-.internet-icon {
-    font-size: 10px;
-    min-width: 16px;
-}
-
-.internet-label {
-    flex: 1;
-    color: #555;
-    font-size: 10px;
-}
-
-.internet-value {
-    font-weight: bold;
-    font-size: 10px;
-}
-
-.internet-value.yes {
-    color: #2e7d32;
-}
-
-.internet-value.no {
-    color: #c62828;
-}
-
-.internet-bar-container {
-    margin-top: 5px;
-    height: 4px;
-    background: #e0e0e0;
-    border-radius: 2px;
-    overflow: hidden;
-}
-
-.internet-bar {
-    height: 100%;
-    background: linear-gradient(90deg, #4caf50, #66bb6a);
-    border-radius: 2px;
-    transition: width 0.3s ease;
-}
-
-.internet-percent-text {
-    text-align: right;
-    font-size: 8px;
-    color: #666;
-    margin-top: 2px;
-}
-
-.stat-kategori {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 6px;
-}
-
-.stat-badge {
-    background: #ecf0f1;
-    padding: 2px 6px;
-    border-radius: 10px;
-    font-size: 9px;
-    color: #2c3e50;
-    cursor: help;
-    max-width: 140px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.stat-badge:hover {
-    background: #d5dbdb;
-}
-
-.stat-badge.stat-empty {
-    background: #fdebd0;
-    color: #e67e22;
-}
-
-.stat-more {
-    font-size: 9px;
-    color: #7f8c8d;
-    font-style: italic;
-    padding: 2px 4px;
-}
-
-.stats-filter-info {
-    padding: 6px 10px;
-    background: #e3f2fd;
-    font-size: 10px;
-    color: #1565c0;
-    border-bottom: 1px solid #bbdef5;
-}
-
-.stats-no-data {
-    padding: 15px;
-    text-align: center;
-    color: #999;
-    font-size: 11px;
-}
-
-/* ========== OVERLAY ========== */
-#resize-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: transparent;
-    z-index: 9999;
-    cursor: ns-resize;
-    display: none;
-}
-
-/* ========== SCROLLBAR ========== */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-
-::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #555;
-}
-
 /* ========== RESPONSIVE ========== */
 @media (max-width: 1400px) {
     .rekap-right-nav {
         width: 280px;
+        min-width: 280px;
     }
 }
 
 @media (max-width: 1200px) {
     .rekap-right-nav {
         width: 260px;
+        min-width: 260px;
     }
     
     .rekap-stats {
@@ -1190,18 +1028,28 @@ body {
 @media (max-width: 1024px) {
     .rekap-right-nav {
         width: 240px;
+        min-width: 240px;
     }
-    
+}
+
+@media (max-width: 992px) {
     .panel-body-rekap-subsls {
         flex-direction: column;
     }
     
     .rekap-right-nav {
         width: 100%;
+        min-width: 100%;
         border-left: none;
         border-top: 1px solid #e0e0e0;
         max-height: 300px;
         flex-shrink: 0;
+        flex-direction: row;
+        overflow: hidden;
+    }
+    
+    .right-nav-header {
+        display: none;
     }
     
     .right-nav-content {
@@ -1209,6 +1057,8 @@ body {
         flex-wrap: wrap;
         gap: 15px;
         padding: 10px 15px;
+        overflow-y: auto;
+        width: 100%;
     }
     
     .right-nav-divider {
@@ -1227,6 +1077,11 @@ body {
         flex: 1;
         min-width: 120px;
         margin-bottom: 0;
+        padding: 8px 10px;
+    }
+    
+    .stat-ringkas-value {
+        font-size: 15px;
     }
     
     .top-kategori {
@@ -1344,6 +1199,19 @@ body {
         padding: 8px 6px;
         font-size: 11px;
     }
+    
+    .rekap-right-nav {
+        max-height: 250px;
+    }
+    
+    .stat-ringkas-item {
+        min-width: 100px;
+        padding: 6px 8px;
+    }
+    
+    .stat-ringkas-value {
+        font-size: 13px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1372,11 +1240,16 @@ body {
     }
     
     .stat-ringkas-item {
-        min-width: 100px;
-        padding: 8px 10px;
+        min-width: 80px;
+        padding: 5px 8px;
     }
     
     .stat-ringkas-value {
-        font-size: 14px;
+        font-size: 12px;
+    }
+    
+    .right-nav-content {
+        padding: 8px 10px;
+        gap: 10px;
     }
 }
