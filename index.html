@@ -13,26 +13,39 @@
 </head>
 <body>
     <!-- LEFT NAVIGATION -->
-    <div class="left-nav">
+    <div class="left-nav" id="leftNav">
+        <!-- Tombol Toggle -->
+        <div class="nav-toggle" id="navToggle" onclick="toggleNav()">
+            <i class="fas fa-bars"></i>
+        </div>
+        
         <div class="nav-header">
-            <h2><i class="fas fa-chart-line"></i> Dashboard</h2>
-            <p>Monitoring Usaha</p>
+            <h2><i class="fas fa-chart-line"></i> <span class="nav-text">Dashboard</span></h2>
+            <p class="nav-text">Monitoring Usaha</p>
         </div>
         <nav class="nav-menu">
             <div class="nav-item active" data-menu="peta">
                 <i class="fas fa-map-marked-alt"></i>
-                <span>Peta Sebaran Usaha</span>
+                <span class="nav-text">Peta Sebaran Usaha</span>
             </div>
             <div class="nav-item" data-menu="rekap">
                 <i class="fas fa-chart-bar"></i>
-                <span>Rekap Dashboard</span>
+                <span class="nav-text">Rekap Dashboard</span>
             </div>
         </nav>
+        
+        <!-- Footer Nav dengan tombol collapse di bawah -->
+        <div class="nav-footer">
+            <div class="nav-item collapse-btn" onclick="toggleNav()">
+                <i class="fas fa-chevron-left" id="collapseIcon"></i>
+                <span class="nav-text">Collapse</span>
+            </div>
+        </div>
     </div>
 
     <!-- MAIN CONTENT -->
-    <div class="main-container">
-        <!-- KONTEN PETA (tanpa right navigasi) -->
+    <div class="main-container" id="mainContainer">
+        <!-- KONTEN PETA -->
         <div id="petaContent" class="content-panel active">
             <div class="panel-header">
                 <h3><i class="fas fa-map-marked-alt"></i> Peta Sebaran Usaha</h3>
@@ -47,7 +60,7 @@
                         </div>
                         <div class="search-box">
                             <i class="fas fa-location-dot"></i>
-                            <input list="idsls-list" id="searchIdsls" placeholder="Cari IDSLS...">
+                            <input list="idsls-list" id="searchIdsls" placeholder="Cari ID SUB SLS...">
                             <datalist id="idsls-list"></datalist>
                         </div>
                         <div class="filter-group">
@@ -71,19 +84,18 @@
             </div>
         </div>
 
-        <!-- KONTEN REKAP DASHBOARD (dengan right navigasi) -->
+        <!-- KONTEN REKAP DASHBOARD -->
         <div id="rekapContent" class="content-panel">
             <div class="panel-header">
-                <h3><i class="fas fa-chart-bar"></i> Rekap Total Usaha per SLS</h3>
-                <p>Data jumlah usaha berdasarkan wilayah SLS</p>
+                <h3><i class="fas fa-chart-bar"></i> Rekap Total Usaha per SUB SLS</h3>
+                <p>Data jumlah usaha berdasarkan wilayah SUB SLS</p>
             </div>
             <div class="panel-body-rekap">
-                <!-- KONTEN UTAMA REKAP -->
                 <div class="rekap-main">
                     <div class="rekap-controls">
                         <div class="search-box-rekap">
                             <i class="fas fa-search"></i>
-                            <input type="text" id="searchRekap" placeholder="Cari IDSLS, Nama SLS, Kecamatan, atau Desa...">
+                            <input type="text" id="searchRekap" placeholder="Cari ID SUB SLS, Nama SLS, Kecamatan, atau Desa...">
                         </div>
                         <div class="export-buttons">
                             <button id="exportExcel" class="btn-excel">
@@ -99,7 +111,7 @@
                         <div class="stat-card">
                             <i class="fas fa-building"></i>
                             <div class="stat-info">
-                                <span class="stat-label">Total SLS</span>
+                                <span class="stat-label">Total SUB SLS</span>
                                 <span class="stat-value" id="totalSLS">0</span>
                             </div>
                         </div>
@@ -150,7 +162,7 @@
                         
                         <div class="top-sls" id="topSLS">
                             <div class="right-nav-subtitle">
-                                <i class="fas fa-trophy"></i> Top 5 SLS Terbanyak
+                                <i class="fas fa-trophy"></i> Top 5 SUB SLS Terbanyak
                             </div>
                             <!-- Akan diisi dengan JS -->
                         </div>
