@@ -15,23 +15,98 @@ body {
 /* ========== LEFT NAVIGATION ========== */
 .left-nav {
     width: 280px;
+    min-width: 280px;
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
     color: white;
     display: flex;
     flex-direction: column;
     box-shadow: 2px 0 10px rgba(0,0,0,0.1);
     z-index: 100;
+    transition: all 0.3s ease;
+    position: relative;
 }
 
+/* State Collapsed */
+.left-nav.collapsed {
+    width: 70px;
+    min-width: 70px;
+}
+
+.left-nav.collapsed .nav-text {
+    display: none;
+}
+
+.left-nav.collapsed .nav-header h2 {
+    font-size: 1.2rem;
+}
+
+.left-nav.collapsed .nav-header p {
+    display: none;
+}
+
+.left-nav.collapsed .nav-item {
+    justify-content: center;
+    padding: 12px;
+}
+
+.left-nav.collapsed .nav-item i {
+    font-size: 1.3rem;
+    margin: 0;
+}
+
+.left-nav.collapsed .nav-footer .nav-text {
+    display: none;
+}
+
+.left-nav.collapsed #collapseIcon {
+    transform: rotate(180deg);
+}
+
+/* Tombol Toggle di Header */
+.nav-toggle {
+    position: absolute;
+    top: 10px;
+    right: -15px;
+    width: 30px;
+    height: 30px;
+    background: #667eea;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 101;
+    box-shadow: 0 2px 10px rgba(102,126,234,0.3);
+    transition: all 0.3s ease;
+}
+
+.nav-toggle:hover {
+    transform: scale(1.1);
+    background: #764ba2;
+}
+
+.nav-toggle i {
+    font-size: 14px;
+    color: white;
+}
+
+/* Saat collapsed, tombol toggle pindah */
+.left-nav.collapsed .nav-toggle {
+    right: -15px;
+}
+
+/* Nav Header */
 .nav-header {
     padding: 30px 20px;
     border-bottom: 1px solid rgba(255,255,255,0.1);
     text-align: center;
+    transition: all 0.3s ease;
 }
 
 .nav-header h2 {
     font-size: 1.5rem;
     margin-bottom: 5px;
+    transition: all 0.3s ease;
 }
 
 .nav-header h2 i {
@@ -41,8 +116,10 @@ body {
 .nav-header p {
     font-size: 0.8rem;
     opacity: 0.7;
+    transition: all 0.3s ease;
 }
 
+/* Nav Menu */
 .nav-menu {
     flex: 1;
     padding: 20px 0;
@@ -63,6 +140,7 @@ body {
 .nav-item i {
     width: 24px;
     font-size: 1.2rem;
+    text-align: center;
 }
 
 .nav-item:hover {
@@ -76,6 +154,24 @@ body {
     box-shadow: 0 5px 15px rgba(102,126,234,0.3);
 }
 
+/* Nav Footer dengan Collapse Button */
+.nav-footer {
+    padding: 20px 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.nav-footer .nav-item {
+    margin: 0 15px;
+}
+
+.nav-footer .nav-item:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+.collapse-btn i {
+    transition: transform 0.3s ease;
+}
+
 /* ========== MAIN CONTAINER ========== */
 .main-container {
     flex: 1;
@@ -83,6 +179,12 @@ body {
     flex-direction: column;
     overflow: hidden;
     background: #f0f2f5;
+    transition: all 0.3s ease;
+}
+
+/* Saat left nav collapsed, main container melebar */
+.left-nav.collapsed + .main-container {
+    margin-left: 0;
 }
 
 .content-panel {
@@ -120,7 +222,7 @@ body {
     font-size: 0.85rem;
 }
 
-/* ========== PETA CONTENT (sama seperti sebelumnya) ========== */
+/* ========== PETA CONTENT ========== */
 .panel-body {
     flex: 1;
     display: flex;
@@ -264,7 +366,7 @@ body {
     height: 100%;
 }
 
-/* ========== REKAP DASHBOARD dengan RIGHT NAVIGASI ========== */
+/* ========== REKAP DASHBOARD ========== */
 .panel-body-rekap {
     flex: 1;
     display: flex;
@@ -272,7 +374,6 @@ body {
     gap: 0;
 }
 
-/* Konten utama rekap (kiri) */
 .rekap-main {
     flex: 1;
     display: flex;
@@ -282,7 +383,6 @@ body {
     gap: 15px;
 }
 
-/* Right Navigasi untuk rekap */
 .rekap-right-nav {
     width: 320px;
     background: white;
@@ -335,7 +435,6 @@ body {
     color: #667eea;
 }
 
-/* Stat Ringkas */
 .stat-ringkas-item {
     background: #f8f9fa;
     border-radius: 10px;
@@ -363,7 +462,6 @@ body {
     color: #667eea;
 }
 
-/* Top Kategori */
 .top-kategori-item {
     display: flex;
     justify-content: space-between;
@@ -393,7 +491,6 @@ body {
     font-size: 13px;
 }
 
-/* Top SLS */
 .top-sls-item {
     display: flex;
     align-items: center;
@@ -578,7 +675,7 @@ body {
 .rekap-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 600px;
+    min-width: 700px;
 }
 
 .rekap-table thead {
@@ -667,6 +764,134 @@ body {
     border-bottom: 1px solid #e0e0e0;
 }
 
+/* ========== STATISTIK WILAYAH ========== */
+.stats-filter-input {
+    width: calc(100% - 20px);
+    margin: 10px;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.stats-wilayah {
+    margin: 10px;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.stats-header {
+    background: #2c3e50;
+    color: white;
+    padding: 10px 15px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+}
+
+.stats-content {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.stats-resize-handle {
+    height: 5px;
+    background: #cbd5e1;
+    cursor: ns-resize;
+    margin: 0 10px;
+    border-radius: 3px;
+}
+
+.stat-item {
+    padding: 10px;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+}
+
+.stat-item:hover {
+    background: #f8f9ff;
+}
+
+.stat-header-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+}
+
+.stat-idsls {
+    font-family: monospace;
+    font-size: 10px;
+    background: #ecf0f1;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.stat-total-badge {
+    font-size: 10px;
+    background: #667eea;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.stat-nmsls {
+    font-weight: bold;
+    font-size: 12px;
+    margin-bottom: 3px;
+}
+
+.stat-location {
+    font-size: 9px;
+    color: #7f8c8d;
+    margin-bottom: 6px;
+}
+
+.stat-internet {
+    background: #f0f9ff;
+    border-radius: 6px;
+    padding: 6px;
+    margin: 6px 0;
+}
+
+.internet-row {
+    display: flex;
+    gap: 10px;
+    font-size: 10px;
+    margin-bottom: 3px;
+}
+
+.internet-bar-container {
+    margin-top: 5px;
+    height: 4px;
+    background: #e0e0e0;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.internet-bar {
+    height: 100%;
+    background: #4caf50;
+    border-radius: 2px;
+}
+
+.stat-kategori {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.stat-badge {
+    background: #ecf0f1;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 9px;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
     width: 6px;
@@ -696,15 +921,49 @@ body {
 @media (max-width: 768px) {
     .left-nav {
         width: 70px;
+        min-width: 70px;
     }
     
-    .nav-header h2, .nav-header p, .nav-item span {
+    .left-nav:not(.collapsed) {
+        width: 280px;
+        min-width: 280px;
+        position: fixed;
+        height: 100vh;
+        z-index: 200;
+        box-shadow: 0 0 30px rgba(0,0,0,0.3);
+    }
+    
+    .left-nav:not(.collapsed) .nav-text {
+        display: inline;
+    }
+    
+    .left-nav:not(.collapsed) .nav-header p {
+        display: block;
+    }
+    
+    .left-nav .nav-text {
         display: none;
     }
     
-    .nav-item {
+    .left-nav .nav-header p {
+        display: none;
+    }
+    
+    .left-nav .nav-item {
         justify-content: center;
         padding: 12px;
+    }
+    
+    .left-nav .nav-item i {
+        font-size: 1.3rem;
+    }
+    
+    .left-nav .nav-footer .nav-text {
+        display: none;
+    }
+    
+    .left-nav .nav-toggle {
+        display: flex !important;
     }
     
     .map-sidebar {
@@ -721,5 +980,11 @@ body {
     
     .export-buttons {
         width: 100%;
+    }
+}
+
+@media (max-width: 768px) and (min-width: 769px) {
+    .left-nav.collapsed .nav-text {
+        display: none;
     }
 }
