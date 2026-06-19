@@ -35,6 +35,18 @@ let currentRekapPage = 1;
 let itemsPerPage = 10;
 let currentRekapSearch = '';
 
+// Variabel untuk Rekap Pengawas
+let rekapByPengawas = [];
+let currentPengawasPage = 1;
+let itemsPengawasPerPage = 10;
+let currentPengawasSearch = '';
+
+// Variabel untuk Rekap Pencacah
+let rekapByPencacah = [];
+let currentPencacahPage = 1;
+let itemsPencacahPerPage = 10;
+let currentPencacahSearch = '';
+
 // DOM Elements untuk peta
 const filterKategori = document.getElementById('filterKategori');
 const dataList = document.getElementById('dataList');
@@ -53,6 +65,18 @@ const searchSubsls = document.getElementById('searchSubsls');
 const exportExcelSubsls = document.getElementById('exportExcelSubsls');
 const exportPDFSubsls = document.getElementById('exportPDFSubsls');
 const rekapSubslsContainer = document.getElementById('rekapSubslsContainer');
+
+// DOM Elements untuk rekap pengawas
+const searchPengawas = document.getElementById('searchPengawas');
+const exportExcelPengawas = document.getElementById('exportExcelPengawas');
+const exportPDFPengawas = document.getElementById('exportPDFPengawas');
+const rekapPengawasContainer = document.getElementById('rekapPengawasContainer');
+
+// DOM Elements untuk rekap pencacah
+const searchPencacah = document.getElementById('searchPencacah');
+const exportExcelPencacah = document.getElementById('exportExcelPencacah');
+const exportPDFPencacah = document.getElementById('exportPDFPencacah');
+const rekapPencacahContainer = document.getElementById('rekapPencacahContainer');
 
 // ==================== FUNGSI BANTU ====================
 function getDisplayName(usaha) {
@@ -76,6 +100,8 @@ function initNavigation() {
     const petaContent = document.getElementById('petaContent');
     const rekapKecamatanContent = document.getElementById('rekapKecamatanContent');
     const rekapSubslsContent = document.getElementById('rekapSubslsContent');
+    const rekapPengawasContent = document.getElementById('rekapPengawasContent');
+    const rekapPencacahContent = document.getElementById('rekapPencacahContent');
     
     navItems.forEach(item => {
         item.addEventListener('click', function() {
@@ -84,9 +110,12 @@ function initNavigation() {
             
             const menuType = this.getAttribute('data-menu');
             
+            // Sembunyikan semua konten
             petaContent.style.display = 'none';
             rekapKecamatanContent.style.display = 'none';
             rekapSubslsContent.style.display = 'none';
+            rekapPengawasContent.style.display = 'none';
+            rekapPencacahContent.style.display = 'none';
             
             if (menuType === 'peta') {
                 petaContent.style.display = 'flex';
@@ -102,6 +131,12 @@ function initNavigation() {
             } else if (menuType === 'rekap-subsls') {
                 rekapSubslsContent.style.display = 'flex';
                 renderRekapSubsls();
+            } else if (menuType === 'rekap-pengawas') {
+                rekapPengawasContent.style.display = 'flex';
+                renderRekapPengawas();
+            } else if (menuType === 'rekap-pencacah') {
+                rekapPencacahContent.style.display = 'flex';
+                renderRekapPencacah();
             }
         });
     });
@@ -113,6 +148,8 @@ function hitungStatistikWilayah() {
     
     statistikData = {};
     const kecamatanMap = new Map();
+    const pengawasMap = new Map();
+    const pencacahMap = new Map();
     
     geojsonData.features.forEach(feature => {
         const idsubsls = feature.properties.idsubsls || "unknown";
@@ -121,8 +158,11 @@ function hitungStatistikWilayah() {
         const nmdesa = feature.properties.nmdesa || "-";
         const idsls = feature.properties.idsls || "-";
         
+        // Ambil data dari GeoJSON
         const usahaGeoJSON = parseInt(feature.properties.usaha) || 0;
         const muatanGeoJSON = parseInt(feature.properties.muatan) || 0;
+        const pengawas = feature.properties.pengawas || "Tidak Ada";
+        const pencacah = feature.properties.pencacah || "Tidak Ada";
         
         statistikData[idsubsls] = {
             idsubsls: idsubsls,
@@ -134,9 +174,12 @@ function hitungStatistikWilayah() {
             menggunakanInternet: 0,
             kategori: {},
             usahaGeoJSON: usahaGeoJSON,
-            muatanGeoJSON: muatanGeoJSON
+            muatanGeoJSON: muatanGeoJSON,
+            pengawas: pengawas,
+            pencacah: pencacah
         };
         
+        // Data per kecamatan
         if (!kecamatanMap.has(nmkec)) {
             kecamatanMap.set(nmkec, {
                 nmkec: nmkec,
@@ -144,18 +187,55 @@ function hitungStatistikWilayah() {
                 totalUsahaGeoJSON: 0,
                 totalMuatanGeoJSON: 0,
                 jumlahSUB: 0,
-                desa: new Set(),
-                idsubslsList: []
+                desa: new Set()
             });
         }
         const kecData = kecamatanMap.get(nmkec);
-        kecData.usahaGeoJSON += usahaGeoJSON;
-        kecData.muatanGeoJSON += muatanGeoJSON;
+        kecData.totalUsahaGeoJSON += usahaGeoJSON;
+        kecData.totalMuatanGeoJSON += muatanGeoJSON;
         kecData.jumlahSUB++;
         kecData.desa.add(nmdesa);
-        kecData.idsubslsList.push(idsubsls);
+        
+        // Data per pengawas
+        if (!pengawasMap.has(pengawas)) {
+            pengawasMap.set(pengawas, {
+                namaPengawas: pengawas,
+                totalUsaha: 0,
+                totalUsahaGeoJSON: 0,
+                totalMuatanGeoJSON: 0,
+                jumlahSUB: 0,
+                kecamatan: new Set(),
+                desa: new Set()
+            });
+        }
+        const pengData = pengawasMap.get(pengawas);
+        pengData.totalUsahaGeoJSON += usahaGeoJSON;
+        pengData.totalMuatanGeoJSON += muatanGeoJSON;
+        pengData.jumlahSUB++;
+        pengData.kecamatan.add(nmkec);
+        pengData.desa.add(nmdesa);
+        
+        // Data per pencacah
+        if (!pencacahMap.has(pencacah)) {
+            pencacahMap.set(pencacah, {
+                namaPencacah: pencacah,
+                totalUsaha: 0,
+                totalUsahaGeoJSON: 0,
+                totalMuatanGeoJSON: 0,
+                jumlahSUB: 0,
+                kecamatan: new Set(),
+                desa: new Set()
+            });
+        }
+        const pencData = pencacahMap.get(pencacah);
+        pencData.totalUsahaGeoJSON += usahaGeoJSON;
+        pencData.totalMuatanGeoJSON += muatanGeoJSON;
+        pencData.jumlahSUB++;
+        pencData.kecamatan.add(nmkec);
+        pencData.desa.add(nmdesa);
     });
     
+    // Proses data dari Firebase
     allBusinessData.forEach(usaha => {
         const kategori = usaha.kategoriUsaha || "Lainnya";
         const menggunakanInternet = usaha.isMenggunakanInternet === true || 
@@ -167,6 +247,9 @@ function hitungStatistikWilayah() {
         geojsonData.features.forEach(feature => {
             const idsubsls = feature.properties.idsubsls;
             const nmkec = feature.properties.nmkec || "-";
+            const pengawas = feature.properties.pengawas || "Tidak Ada";
+            const pencacah = feature.properties.pencacah || "Tidak Ada";
+            
             if (idsubsls && turf.booleanPointInPolygon(point, feature)) {
                 statistikData[idsubsls].total++;
                 if (menggunakanInternet) {
@@ -177,20 +260,44 @@ function hitungStatistikWilayah() {
                 }
                 statistikData[idsubsls].kategori[kategori]++;
                 
+                // Update per kecamatan
                 if (kecamatanMap.has(nmkec)) {
-                    const kecData = kecamatanMap.get(nmkec);
-                    kecData.totalUsaha++;
+                    kecamatanMap.get(nmkec).totalUsaha++;
+                }
+                
+                // Update per pengawas
+                if (pengawasMap.has(pengawas)) {
+                    pengawasMap.get(pengawas).totalUsaha++;
+                }
+                
+                // Update per pencacah
+                if (pencacahMap.has(pencacah)) {
+                    pencacahMap.get(pencacah).totalUsaha++;
                 }
             }
         });
     });
     
+    // Konversi ke array
     rekapByKecamatan = Array.from(kecamatanMap.values())
-        .map(kec => ({
-            ...kec,
-            desa: Array.from(kec.desa)
-        }))
+        .map(kec => ({ ...kec, desa: Array.from(kec.desa) }))
         .sort((a, b) => a.nmkec.localeCompare(b.nmkec));
+    
+    rekapByPengawas = Array.from(pengawasMap.values())
+        .map(peng => ({ 
+            ...peng, 
+            kecamatan: Array.from(peng.kecamatan),
+            desa: Array.from(peng.desa)
+        }))
+        .sort((a, b) => a.namaPengawas.localeCompare(b.namaPengawas));
+    
+    rekapByPencacah = Array.from(pencacahMap.values())
+        .map(penc => ({ 
+            ...penc, 
+            kecamatan: Array.from(penc.kecamatan),
+            desa: Array.from(penc.desa)
+        }))
+        .sort((a, b) => a.namaPencacah.localeCompare(b.namaPencacah));
     
     updateRekapData();
     tampilkanStatistik();
@@ -213,7 +320,9 @@ function updateRekapData() {
             persenInternet: wilayah.total > 0 ? ((wilayah.menggunakanInternet / wilayah.total) * 100).toFixed(1) : 0,
             kategori: wilayah.kategori,
             usahaGeoJSON: wilayah.usahaGeoJSON || 0,
-            muatanGeoJSON: wilayah.muatanGeoJSON || 0
+            muatanGeoJSON: wilayah.muatanGeoJSON || 0,
+            pengawas: wilayah.pengawas,
+            pencacah: wilayah.pencacah
         }))
         .sort((a, b) => a.idsubsls.localeCompare(b.idsubsls));
 }
@@ -406,14 +515,19 @@ function renderRekapKecamatan() {
         pageData.forEach((item, index) => {
             const isDifferent = item.totalUsaha !== item.totalUsahaGeoJSON;
             const diffClass = isDifferent ? 'style="background-color: #fff3cd;"' : '';
+            
             html += `
                 <tr ${diffClass}>
                     <td>${startIndex + index + 1}</td>
                     <td><strong>${item.nmkec}</strong></td>
                     <td style="text-align:center;">${item.jumlahSUB}</td>
                     <td style="text-align:center; font-weight: bold; color: #28a745;">${item.totalUsaha}</td>
-                    <td style="text-align:center; color: #28a745;">${item.totalUsahaGeoJSON || 0}</td>
-                    <td style="text-align:center; color: #dc3545;">${item.totalMuatanGeoJSON || 0}</td>
+                    <td style="text-align:center; color: #28a745; font-weight: bold;">
+                        ${item.totalUsahaGeoJSON || 0}
+                    </td>
+                    <td style="text-align:center; color: #dc3545; font-weight: bold;">
+                        ${item.totalMuatanGeoJSON || 0}
+                    </td>
                     <td style="font-size: 10px; color: #666;">${item.desa.join(', ')}</td>
                 </tr>
             `;
@@ -456,7 +570,6 @@ function renderRekapSubsls() {
         );
     }
     
-    // Update right navigation
     updateRightNavigationSubsls(filteredData);
     
     const totalItems = filteredData.length;
@@ -555,6 +668,208 @@ function renderRekapSubsls() {
     rekapSubslsContainer.innerHTML = html;
 }
 
+// ==================== RENDER REKAP PENGAWAS ====================
+function renderRekapPengawas() {
+    if (!rekapPengawasContainer) return;
+    
+    let filteredData = [...rekapByPengawas];
+    if (currentPengawasSearch) {
+        filteredData = filteredData.filter(item => 
+            item.namaPengawas.toLowerCase().includes(currentPengawasSearch.toLowerCase())
+        );
+    }
+    
+    const totalItems = filteredData.length;
+    const totalPages = Math.ceil(totalItems / itemsPengawasPerPage);
+    const startIndex = (currentPengawasPage - 1) * itemsPengawasPerPage;
+    const endIndex = startIndex + itemsPengawasPerPage;
+    const pageData = filteredData.slice(startIndex, endIndex);
+    
+    const totalUsaha = filteredData.reduce((sum, item) => sum + item.totalUsaha, 0);
+    const totalPeng = filteredData.length;
+    const avgUsaha = totalPeng > 0 ? (totalUsaha / totalPeng).toFixed(1) : 0;
+    const totalUsahaGeoJSON = filteredData.reduce((sum, item) => sum + (item.totalUsahaGeoJSON || 0), 0);
+    const totalMuatanGeoJSON = filteredData.reduce((sum, item) => sum + (item.totalMuatanGeoJSON || 0), 0);
+    
+    document.getElementById('totalPengawas').textContent = totalPeng;
+    document.getElementById('totalUsahaPengawas').textContent = totalUsaha;
+    document.getElementById('avgUsahaPengawas').textContent = avgUsaha;
+    
+    let html = `
+        <div class="rekap-info">
+            <strong>${totalPeng}</strong> Pengawas | 
+            <strong>${totalUsaha}</strong> Total Usaha (Real) | 
+            <strong>${totalUsahaGeoJSON}</strong> Perkiraan Usaha | 
+            <strong>${totalMuatanGeoJSON}</strong> Muatan |
+            Halaman <strong>${currentPengawasPage}</strong> dari <strong>${totalPages || 1}</strong>
+        </div>
+        <div class="rekap-table-wrapper">
+            <table class="rekap-table">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Nama Pengawas</th>
+                        <th>Jumlah SUB SLS</th>
+                        <th>Total Usaha (Real)</th>
+                        <th>Perkiraan Usaha</th>
+                        <th>Muatan</th>
+                        <th>Kecamatan</th>
+                        <th>Desa</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    if (pageData.length === 0) {
+        html += `
+            <tr>
+                <td colspan="8" class="rekap-no-data">
+                    <i class="fas fa-database"></i> Tidak ada data pengawas ditemukan
+                </td>
+            </tr>
+        `;
+    } else {
+        pageData.forEach((item, index) => {
+            const isDifferent = item.totalUsaha !== item.totalUsahaGeoJSON;
+            const diffClass = isDifferent ? 'style="background-color: #fff3cd;"' : '';
+            
+            html += `
+                <tr ${diffClass}>
+                    <td>${startIndex + index + 1}</td>
+                    <td><strong>${item.namaPengawas}</strong></td>
+                    <td style="text-align:center;">${item.jumlahSUB}</td>
+                    <td style="text-align:center; font-weight: bold; color: #e67e22;">${item.totalUsaha}</td>
+                    <td style="text-align:center; color: #e67e22;">${item.totalUsahaGeoJSON || 0}</td>
+                    <td style="text-align:center; color: #dc3545;">${item.totalMuatanGeoJSON || 0}</td>
+                    <td style="font-size: 10px; color: #666;">${item.kecamatan.join(', ')}</td>
+                    <td style="font-size: 10px; color: #666;">${item.desa.join(', ')}</td>
+                </tr>
+            `;
+        });
+    }
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    if (totalPages > 1) {
+        html += `<div class="rekap-pagination">`;
+        for (let i = 1; i <= Math.min(totalPages, 10); i++) {
+            html += `<button class="${i === currentPengawasPage ? 'active' : ''}" onclick="goToPengawasPage(${i})">${i}</button>`;
+        }
+        if (totalPages > 10) {
+            html += `<span style="padding: 6px;">...</span>`;
+            html += `<button onclick="goToPengawasPage(${totalPages})">${totalPages}</button>`;
+        }
+        html += `</div>`;
+    }
+    
+    rekapPengawasContainer.innerHTML = html;
+}
+
+// ==================== RENDER REKAP PENCACAH ====================
+function renderRekapPencacah() {
+    if (!rekapPencacahContainer) return;
+    
+    let filteredData = [...rekapByPencacah];
+    if (currentPencacahSearch) {
+        filteredData = filteredData.filter(item => 
+            item.namaPencacah.toLowerCase().includes(currentPencacahSearch.toLowerCase())
+        );
+    }
+    
+    const totalItems = filteredData.length;
+    const totalPages = Math.ceil(totalItems / itemsPencacahPerPage);
+    const startIndex = (currentPencacahPage - 1) * itemsPencacahPerPage;
+    const endIndex = startIndex + itemsPencacahPerPage;
+    const pageData = filteredData.slice(startIndex, endIndex);
+    
+    const totalUsaha = filteredData.reduce((sum, item) => sum + item.totalUsaha, 0);
+    const totalPenc = filteredData.length;
+    const avgUsaha = totalPenc > 0 ? (totalUsaha / totalPenc).toFixed(1) : 0;
+    const totalUsahaGeoJSON = filteredData.reduce((sum, item) => sum + (item.totalUsahaGeoJSON || 0), 0);
+    const totalMuatanGeoJSON = filteredData.reduce((sum, item) => sum + (item.totalMuatanGeoJSON || 0), 0);
+    
+    document.getElementById('totalPencacah').textContent = totalPenc;
+    document.getElementById('totalUsahaPencacah').textContent = totalUsaha;
+    document.getElementById('avgUsahaPencacah').textContent = avgUsaha;
+    
+    let html = `
+        <div class="rekap-info">
+            <strong>${totalPenc}</strong> Pencacah | 
+            <strong>${totalUsaha}</strong> Total Usaha (Real) | 
+            <strong>${totalUsahaGeoJSON}</strong> Perkiraan Usaha | 
+            <strong>${totalMuatanGeoJSON}</strong> Muatan |
+            Halaman <strong>${currentPencacahPage}</strong> dari <strong>${totalPages || 1}</strong>
+        </div>
+        <div class="rekap-table-wrapper">
+            <table class="rekap-table">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Nama Pencacah</th>
+                        <th>Jumlah SUB SLS</th>
+                        <th>Total Usaha (Real)</th>
+                        <th>Perkiraan Usaha</th>
+                        <th>Muatan</th>
+                        <th>Kecamatan</th>
+                        <th>Desa</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    if (pageData.length === 0) {
+        html += `
+            <tr>
+                <td colspan="8" class="rekap-no-data">
+                    <i class="fas fa-database"></i> Tidak ada data pencacah ditemukan
+                </td>
+            </tr>
+        `;
+    } else {
+        pageData.forEach((item, index) => {
+            const isDifferent = item.totalUsaha !== item.totalUsahaGeoJSON;
+            const diffClass = isDifferent ? 'style="background-color: #fff3cd;"' : '';
+            
+            html += `
+                <tr ${diffClass}>
+                    <td>${startIndex + index + 1}</td>
+                    <td><strong>${item.namaPencacah}</strong></td>
+                    <td style="text-align:center;">${item.jumlahSUB}</td>
+                    <td style="text-align:center; font-weight: bold; color: #8e44ad;">${item.totalUsaha}</td>
+                    <td style="text-align:center; color: #8e44ad;">${item.totalUsahaGeoJSON || 0}</td>
+                    <td style="text-align:center; color: #dc3545;">${item.totalMuatanGeoJSON || 0}</td>
+                    <td style="font-size: 10px; color: #666;">${item.kecamatan.join(', ')}</td>
+                    <td style="font-size: 10px; color: #666;">${item.desa.join(', ')}</td>
+                </tr>
+            `;
+        });
+    }
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    if (totalPages > 1) {
+        html += `<div class="rekap-pagination">`;
+        for (let i = 1; i <= Math.min(totalPages, 10); i++) {
+            html += `<button class="${i === currentPencacahPage ? 'active' : ''}" onclick="goToPencacahPage(${i})">${i}</button>`;
+        }
+        if (totalPages > 10) {
+            html += `<span style="padding: 6px;">...</span>`;
+            html += `<button onclick="goToPencacahPage(${totalPages})">${totalPages}</button>`;
+        }
+        html += `</div>`;
+    }
+    
+    rekapPencacahContainer.innerHTML = html;
+}
+
 // ==================== FUNGSI NAVIGASI HALAMAN ====================
 window.goToKecamatanPage = function(page) {
     currentKecamatanPage = page;
@@ -564,6 +879,16 @@ window.goToKecamatanPage = function(page) {
 window.goToSubslsPage = function(page) {
     currentRekapPage = page;
     renderRekapSubsls();
+};
+
+window.goToPengawasPage = function(page) {
+    currentPengawasPage = page;
+    renderRekapPengawas();
+};
+
+window.goToPencacahPage = function(page) {
+    currentPencacahPage = page;
+    renderRekapPencacah();
 };
 
 window.zoomToSLS = function(idsubsls) {
@@ -943,6 +1268,7 @@ if (exportPDFKecamatan) {
                 <h2>Rekap Total Usaha per Kecamatan</h2>
                 <p>Tanggal: ${new Date().toLocaleString('id-ID')}</p>
                 <p>Total Kecamatan: ${dataToExport.length} | Total Usaha: ${dataToExport.reduce((s, i) => s + i.totalUsaha, 0)}</p>
+                <p>Total Perkiraan Usaha: ${dataToExport.reduce((s, i) => s + (i.totalUsahaGeoJSON || 0), 0)} | Total Muatan: ${dataToExport.reduce((s, i) => s + (i.totalMuatanGeoJSON || 0), 0)}</p>
                 <table>
                     <thead>
                         <tr>
@@ -1132,6 +1458,260 @@ if (exportPDFSubsls) {
     });
 }
 
+// ==================== EVENT LISTENER REKAP PENGAWAS ====================
+if (searchPengawas) {
+    searchPengawas.addEventListener('input', (e) => {
+        currentPengawasSearch = e.target.value;
+        currentPengawasPage = 1;
+        renderRekapPengawas();
+    });
+}
+
+if (exportExcelPengawas) {
+    exportExcelPengawas.addEventListener('click', () => {
+        let dataToExport = [...rekapByPengawas];
+        if (currentPengawasSearch) {
+            dataToExport = dataToExport.filter(item => 
+                item.namaPengawas.toLowerCase().includes(currentPengawasSearch.toLowerCase())
+            );
+        }
+        
+        const excelData = dataToExport.map((item, index) => ({
+            'No': index + 1,
+            'Nama Pengawas': item.namaPengawas,
+            'Jumlah SUB SLS': item.jumlahSUB,
+            'Total Usaha (Real)': item.totalUsaha,
+            'Perkiraan Usaha': item.totalUsahaGeoJSON || 0,
+            'Muatan': item.totalMuatanGeoJSON || 0,
+            'Kecamatan': item.kecamatan.join(', '),
+            'Desa': item.desa.join(', ')
+        }));
+        
+        const headers = Object.keys(excelData[0]);
+        const csvContent = [
+            headers.join(','),
+            ...excelData.map(row => headers.map(header => `"${row[header]}"`).join(','))
+        ].join('\n');
+        
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.setAttribute('download', `rekap_usaha_per_pengawas_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        alert('Export Excel Pengawas berhasil!');
+    });
+}
+
+if (exportPDFPengawas) {
+    exportPDFPengawas.addEventListener('click', () => {
+        let dataToExport = [...rekapByPengawas];
+        if (currentPengawasSearch) {
+            dataToExport = dataToExport.filter(item => 
+                item.namaPengawas.toLowerCase().includes(currentPengawasSearch.toLowerCase())
+            );
+        }
+        
+        let htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Rekap Total Usaha per Pengawas</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; }
+                    h2 { color: #e67e22; text-align: center; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 10px; }
+                    th { background-color: #e67e22; color: white; }
+                    .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #666; }
+                    .highlight { background-color: #fff3cd; }
+                </style>
+            </head>
+            <body>
+                <h2>Rekap Total Usaha per Pengawas</h2>
+                <p>Tanggal: ${new Date().toLocaleString('id-ID')}</p>
+                <p>Total Pengawas: ${dataToExport.length} | Total Usaha: ${dataToExport.reduce((s, i) => s + i.totalUsaha, 0)}</p>
+                <p>Total Perkiraan Usaha: ${dataToExport.reduce((s, i) => s + (i.totalUsahaGeoJSON || 0), 0)} | Total Muatan: ${dataToExport.reduce((s, i) => s + (i.totalMuatanGeoJSON || 0), 0)}</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Nama Pengawas</th>
+                            <th>Jumlah SUB SLS</th>
+                            <th>Total Usaha</th>
+                            <th>Perkiraan Usaha</th>
+                            <th>Muatan</th>
+                            <th>Kecamatan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        dataToExport.forEach((item, index) => {
+            const isDifferent = item.totalUsaha !== item.totalUsahaGeoJSON;
+            const rowClass = isDifferent ? 'class="highlight"' : '';
+            htmlContent += `<tr ${rowClass}>
+                <td>${index + 1}</td>
+                <td>${item.namaPengawas}</td>
+                <td style="text-align:center">${item.jumlahSUB}</td>
+                <td style="text-align:center">${item.totalUsaha}</td>
+                <td style="text-align:center">${item.totalUsahaGeoJSON || 0}</td>
+                <td style="text-align:center">${item.totalMuatanGeoJSON || 0}</td>
+                <td>${item.kecamatan.join(', ')}</td>
+            </tr>`;
+        });
+        
+        htmlContent += `
+                    </tbody>
+                </table>
+                <div class="footer">Dicetak dari Dashboard Monitoring Usaha</div>
+                <p style="font-size: 9px; color: #666; margin-top: 10px;">
+                    * Baris dengan latar kuning menandakan perbedaan antara Total Usaha dan Perkiraan Usaha
+                </p>
+            </body>
+            </html>
+        `;
+        
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.print();
+        printWindow.close();
+    });
+}
+
+// ==================== EVENT LISTENER REKAP PENCACAH ====================
+if (searchPencacah) {
+    searchPencacah.addEventListener('input', (e) => {
+        currentPencacahSearch = e.target.value;
+        currentPencacahPage = 1;
+        renderRekapPencacah();
+    });
+}
+
+if (exportExcelPencacah) {
+    exportExcelPencacah.addEventListener('click', () => {
+        let dataToExport = [...rekapByPencacah];
+        if (currentPencacahSearch) {
+            dataToExport = dataToExport.filter(item => 
+                item.namaPencacah.toLowerCase().includes(currentPencacahSearch.toLowerCase())
+            );
+        }
+        
+        const excelData = dataToExport.map((item, index) => ({
+            'No': index + 1,
+            'Nama Pencacah': item.namaPencacah,
+            'Jumlah SUB SLS': item.jumlahSUB,
+            'Total Usaha (Real)': item.totalUsaha,
+            'Perkiraan Usaha': item.totalUsahaGeoJSON || 0,
+            'Muatan': item.totalMuatanGeoJSON || 0,
+            'Kecamatan': item.kecamatan.join(', '),
+            'Desa': item.desa.join(', ')
+        }));
+        
+        const headers = Object.keys(excelData[0]);
+        const csvContent = [
+            headers.join(','),
+            ...excelData.map(row => headers.map(header => `"${row[header]}"`).join(','))
+        ].join('\n');
+        
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.setAttribute('download', `rekap_usaha_per_pencacah_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        alert('Export Excel Pencacah berhasil!');
+    });
+}
+
+if (exportPDFPencacah) {
+    exportPDFPencacah.addEventListener('click', () => {
+        let dataToExport = [...rekapByPencacah];
+        if (currentPencacahSearch) {
+            dataToExport = dataToExport.filter(item => 
+                item.namaPencacah.toLowerCase().includes(currentPencacahSearch.toLowerCase())
+            );
+        }
+        
+        let htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Rekap Total Usaha per Pencacah</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; }
+                    h2 { color: #8e44ad; text-align: center; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 10px; }
+                    th { background-color: #8e44ad; color: white; }
+                    .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #666; }
+                    .highlight { background-color: #fff3cd; }
+                </style>
+            </head>
+            <body>
+                <h2>Rekap Total Usaha per Pencacah</h2>
+                <p>Tanggal: ${new Date().toLocaleString('id-ID')}</p>
+                <p>Total Pencacah: ${dataToExport.length} | Total Usaha: ${dataToExport.reduce((s, i) => s + i.totalUsaha, 0)}</p>
+                <p>Total Perkiraan Usaha: ${dataToExport.reduce((s, i) => s + (i.totalUsahaGeoJSON || 0), 0)} | Total Muatan: ${dataToExport.reduce((s, i) => s + (i.totalMuatanGeoJSON || 0), 0)}</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Nama Pencacah</th>
+                            <th>Jumlah SUB SLS</th>
+                            <th>Total Usaha</th>
+                            <th>Perkiraan Usaha</th>
+                            <th>Muatan</th>
+                            <th>Kecamatan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        dataToExport.forEach((item, index) => {
+            const isDifferent = item.totalUsaha !== item.totalUsahaGeoJSON;
+            const rowClass = isDifferent ? 'class="highlight"' : '';
+            htmlContent += `<tr ${rowClass}>
+                <td>${index + 1}</td>
+                <td>${item.namaPencacah}</td>
+                <td style="text-align:center">${item.jumlahSUB}</td>
+                <td style="text-align:center">${item.totalUsaha}</td>
+                <td style="text-align:center">${item.totalUsahaGeoJSON || 0}</td>
+                <td style="text-align:center">${item.totalMuatanGeoJSON || 0}</td>
+                <td>${item.kecamatan.join(', ')}</td>
+            </tr>`;
+        });
+        
+        htmlContent += `
+                    </tbody>
+                </table>
+                <div class="footer">Dicetak dari Dashboard Monitoring Usaha</div>
+                <p style="font-size: 9px; color: #666; margin-top: 10px;">
+                    * Baris dengan latar kuning menandakan perbedaan antara Total Usaha dan Perkiraan Usaha
+                </p>
+            </body>
+            </html>
+        `;
+        
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.print();
+        printWindow.close();
+    });
+}
+
 // ==================== LOAD DATA ====================
 // LOAD GEOJSON
 fetch('data/wilayah.geojson')
@@ -1267,3 +1847,4 @@ initNavigation();
 
 console.log('Dashboard siap!');
 console.log('💡 Tips: Tekan Ctrl+B untuk toggle navigasi');
+console.log('📊 Menu Rekap: Kecamatan, SUB SLS, Pengawas, Pencacah');
