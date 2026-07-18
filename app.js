@@ -5,78 +5,78 @@ const firebaseConfig = { databaseURL: "https://indigoapp-fafa0-default-rtdb.asia
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+// ==================== INISIALISASI PETA ====================
 const map = L.map('map').setView([-6.2000, 106.8166], 12);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+}).addTo(map);
 
-const allMarkers = L.layerGroup().addTo(map);
+// ==================== MARKER CLUSTER ====================
+const markerCluster = L.markerClusterGroup({
+    maxClusterRadius: 50,
+    disableClusteringAtZoom: 16,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    zoomToBoundsOnClick: true,
+    spiderLegPolylineOptions: { weight: 1.5, color: '#667eea', opacity: 0.5 },
+    chunkedLoading: true, // Load markers in chunks
+    chunkInterval: 100,
+    chunkDelay: 50
+}).addTo(map);
+
+// ==================== IKO MARKER ====================
 const redIcon = new L.Icon({
     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
 });
 
-// --- VARIABEL GLOBAL ---
+const defaultIcon = new L.Icon.Default();
+
+// ==================== VARIABEL GLOBAL ====================
 let allBusinessData = [];
 let currentlySelectedMarker = null;
 const regionLayers = {};
 let geojsonData = null;
 let statistikData = {};
 let geoJsonLayer = null;
+let spatialIndex = null;
+let isDataLoaded = false;
+let isLoading = false;
+let popupCache = new Map();
 
-// Variabel untuk Rekap Kecamatan
+// Variabel Rekap
 let rekapByKecamatan = [];
 let currentKecamatanPage = 1;
 let itemsKecamatanPerPage = 10;
 let currentKecamatanSearch = '';
 
-// Variabel untuk Rekap SUB SLS
 let rekapData = [];
 let currentRekapPage = 1;
 let itemsPerPage = 10;
 let currentRekapSearch = '';
 
-// Variabel untuk Rekap Pengawas
 let rekapByPengawas = [];
 let currentPengawasPage = 1;
 let itemsPengawasPerPage = 10;
 let currentPengawasSearch = '';
 
-// Variabel untuk Rekap Pencacah
 let rekapByPencacah = [];
 let currentPencacahPage = 1;
 let itemsPencacahPerPage = 10;
 let currentPencacahSearch = '';
 
-// DOM Elements untuk peta
+// ==================== DOM ELEMENTS ====================
 const filterKategori = document.getElementById('filterKategori');
 const dataList = document.getElementById('dataList');
 const searchInput = document.getElementById('searchInput');
 const searchIdsls = document.getElementById('searchIdsls');
 const idslsList = document.getElementById('idsls-list');
-
-// DOM Elements untuk rekap kecamatan
-const searchKecamatan = document.getElementById('searchKecamatan');
-const exportExcelKecamatan = document.getElementById('exportExcelKecamatan');
-const exportPDFKecamatan = document.getElementById('exportPDFKecamatan');
-const rekapKecamatanContainer = document.getElementById('rekapKecamatanContainer');
-
-// DOM Elements untuk rekap subsls
-const searchSubsls = document.getElementById('searchSubsls');
-const exportExcelSubsls = document.getElementById('exportExcelSubsls');
-const exportPDFSubsls = document.getElementById('exportPDFSubsls');
-const rekapSubslsContainer = document.getElementById('rekapSubslsContainer');
-
-// DOM Elements untuk rekap pengawas
-const searchPengawas = document.getElementById('searchPengawas');
-const exportExcelPengawas = document.getElementById('exportExcelPengawas');
-const exportPDFPengawas = document.getElementById('exportPDFPengawas');
-const rekapPengawasContainer = document.getElementById('rekapPengawasContainer');
-
-// DOM Elements untuk rekap pencacah
-const searchPencacah = document.getElementById('searchPencacah');
-const exportExcelPencacah = document.getElementById('exportExcelPencacah');
-const exportPDFPencacah = document.getElementById('exportPDFPencacah');
-const rekapPencacahContainer = document.getElementById('rekapPencacahContainer');
+const loadingOverlay = document.getElementById('loadingOverlay');
 
 // ==================== FUNGSI BANTU ====================
 function getDisplayName(usaha) {
@@ -94,7 +94,17 @@ function getDisplayName(usaha) {
     }
 }
 
-// ==================== FUNGSI NAVIGASI ====================
+// ==================== HIDE LOADING ====================
+function hideLoading() {
+    if (loadingOverlay) {
+        loadingOverlay.classList.add('hidden');
+        setTimeout(() => {
+            loadingOverlay.style.display = 'none';
+        }, 500);
+    }
+}
+
+// ==================== NAVIGASI ====================
 function initNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
     const petaContent = document.getElementById('petaContent');
@@ -110,7 +120,6 @@ function initNavigation() {
             
             const menuType = this.getAttribute('data-menu');
             
-            // Sembunyikan semua konten
             petaContent.style.display = 'none';
             rekapKecamatanContent.style.display = 'none';
             rekapSubslsContent.style.display = 'none';
@@ -142,143 +151,193 @@ function initNavigation() {
     });
 }
 
-// ==================== FUNGSI MENGHITUNG TAGGING PER WILAYAH ====================
+// ==================== BUILD SPATIAL INDEX ====================
+function buildSpatialIndex() {
+    if (!geojsonData) return null;
+    return geojsonData.features.map((feature, index) => {
+        const bbox = turf.bbox(feature);
+        return {
+            index: index,
+            bbox: bbox,
+            feature: feature,
+            id: feature.properties.idsubsls || feature.properties.idsls || "unknown"
+        };
+    });
+}
+
+// ==================== HITUNG STATISTIK WILAYAH (OPTIMASI) ====================
 function hitungStatistikWilayah() {
-    if (!geojsonData || allBusinessData.length === 0) return;
+    if (!geojsonData || allBusinessData.length === 0) {
+        hideLoading();
+        return;
+    }
+    
+    // Build spatial index jika belum ada
+    if (!spatialIndex) {
+        spatialIndex = buildSpatialIndex();
+    }
     
     statistikData = {};
     const kecamatanMap = new Map();
     const pengawasMap = new Map();
     const pencacahMap = new Map();
     
+    // Inisialisasi statistik dari GeoJSON
     geojsonData.features.forEach(feature => {
-        const idsubsls = feature.properties.idsubsls || "unknown";
-        const nmsubsls = feature.properties.nmsls || feature.properties.nmsubsls || "Unknown";
-        const nmkec = feature.properties.nmkec || "-";
-        const nmdesa = feature.properties.nmdesa || "-";
-        const idsls = feature.properties.idsls || "-";
-        
-        // Ambil data dari GeoJSON
-        const usahaGeoJSON = parseInt(feature.properties.usaha) || 0;
-        const muatanGeoJSON = parseInt(feature.properties.muatan) || 0;
-        const pengawas = feature.properties.pengawas || "Tidak Ada";
-        const pencacah = feature.properties.pencacah || "Tidak Ada";
-        
+        const idsubsls = feature.properties.idsubsls || feature.properties.idsls || "unknown";
         statistikData[idsubsls] = {
             idsubsls: idsubsls,
-            nmsubsls: nmsubsls,
-            idsls: idsls,
-            nmkec: nmkec,
-            nmdesa: nmdesa,
+            nmsubsls: feature.properties.nmsls || feature.properties.nmsubsls || "Unknown",
+            nmkec: feature.properties.nmkec || "-",
+            nmdesa: feature.properties.nmdesa || "-",
+            idsls: feature.properties.idsls || "-",
             total: 0,
             menggunakanInternet: 0,
             kategori: {},
-            usahaGeoJSON: usahaGeoJSON,
-            muatanGeoJSON: muatanGeoJSON,
-            pengawas: pengawas,
-            pencacah: pencacah
+            usahaGeoJSON: parseInt(feature.properties.usaha) || 0,
+            muatanGeoJSON: parseInt(feature.properties.muatan) || 0,
+            pengawas: feature.properties.pengawas || "Tidak Ada",
+            pencacah: feature.properties.pencacah || "Tidak Ada"
         };
         
-        // Data per kecamatan
+        // Inisialisasi kecamatan
+        const nmkec = feature.properties.nmkec || "-";
         if (!kecamatanMap.has(nmkec)) {
             kecamatanMap.set(nmkec, {
                 nmkec: nmkec,
                 totalUsaha: 0,
-                totalUsahaGeoJSON: 0,
-                totalMuatanGeoJSON: 0,
-                jumlahSUB: 0,
-                desa: new Set()
+                totalUsahaGeoJSON: parseInt(feature.properties.usaha) || 0,
+                totalMuatanGeoJSON: parseInt(feature.properties.muatan) || 0,
+                jumlahSUB: 1,
+                desa: new Set([feature.properties.nmdesa || "-"])
             });
+        } else {
+            const kec = kecamatanMap.get(nmkec);
+            kec.totalUsahaGeoJSON += parseInt(feature.properties.usaha) || 0;
+            kec.totalMuatanGeoJSON += parseInt(feature.properties.muatan) || 0;
+            kec.jumlahSUB++;
+            kec.desa.add(feature.properties.nmdesa || "-");
         }
-        const kecData = kecamatanMap.get(nmkec);
-        kecData.totalUsahaGeoJSON += usahaGeoJSON;
-        kecData.totalMuatanGeoJSON += muatanGeoJSON;
-        kecData.jumlahSUB++;
-        kecData.desa.add(nmdesa);
         
-        // Data per pengawas
+        // Inisialisasi pengawas
+        const pengawas = feature.properties.pengawas || "Tidak Ada";
         if (!pengawasMap.has(pengawas)) {
             pengawasMap.set(pengawas, {
                 namaPengawas: pengawas,
                 totalUsaha: 0,
-                totalUsahaGeoJSON: 0,
-                totalMuatanGeoJSON: 0,
-                jumlahSUB: 0,
-                kecamatan: new Set(),
-                desa: new Set()
+                totalUsahaGeoJSON: parseInt(feature.properties.usaha) || 0,
+                totalMuatanGeoJSON: parseInt(feature.properties.muatan) || 0,
+                jumlahSUB: 1,
+                kecamatan: new Set([nmkec]),
+                desa: new Set([feature.properties.nmdesa || "-"])
             });
+        } else {
+            const peng = pengawasMap.get(pengawas);
+            peng.totalUsahaGeoJSON += parseInt(feature.properties.usaha) || 0;
+            peng.totalMuatanGeoJSON += parseInt(feature.properties.muatan) || 0;
+            peng.jumlahSUB++;
+            peng.kecamatan.add(nmkec);
+            peng.desa.add(feature.properties.nmdesa || "-");
         }
-        const pengData = pengawasMap.get(pengawas);
-        pengData.totalUsahaGeoJSON += usahaGeoJSON;
-        pengData.totalMuatanGeoJSON += muatanGeoJSON;
-        pengData.jumlahSUB++;
-        pengData.kecamatan.add(nmkec);
-        pengData.desa.add(nmdesa);
         
-        // Data per pencacah
+        // Inisialisasi pencacah
+        const pencacah = feature.properties.pencacah || "Tidak Ada";
         if (!pencacahMap.has(pencacah)) {
             pencacahMap.set(pencacah, {
                 namaPencacah: pencacah,
                 totalUsaha: 0,
-                totalUsahaGeoJSON: 0,
-                totalMuatanGeoJSON: 0,
-                jumlahSUB: 0,
-                kecamatan: new Set(),
-                desa: new Set()
+                totalUsahaGeoJSON: parseInt(feature.properties.usaha) || 0,
+                totalMuatanGeoJSON: parseInt(feature.properties.muatan) || 0,
+                jumlahSUB: 1,
+                kecamatan: new Set([nmkec]),
+                desa: new Set([feature.properties.nmdesa || "-"])
             });
+        } else {
+            const penc = pencacahMap.get(pencacah);
+            penc.totalUsahaGeoJSON += parseInt(feature.properties.usaha) || 0;
+            penc.totalMuatanGeoJSON += parseInt(feature.properties.muatan) || 0;
+            penc.jumlahSUB++;
+            penc.kecamatan.add(nmkec);
+            penc.desa.add(feature.properties.nmdesa || "-");
         }
-        const pencData = pencacahMap.get(pencacah);
-        pencData.totalUsahaGeoJSON += usahaGeoJSON;
-        pencData.totalMuatanGeoJSON += muatanGeoJSON;
-        pencData.jumlahSUB++;
-        pencData.kecamatan.add(nmkec);
-        pencData.desa.add(nmdesa);
     });
     
-    // Proses data dari Firebase
-    allBusinessData.forEach(usaha => {
-        const kategori = usaha.kategoriUsaha || "Lainnya";
-        const menggunakanInternet = usaha.isMenggunakanInternet === true || 
-                                     usaha.isMenggunakanInternet === "true" || 
-                                     usaha.isMenggunakanInternet === 1;
+    // Proses data usaha dengan batch
+    const batchSize = 100;
+    const totalBusiness = allBusinessData.length;
+    let processed = 0;
+    
+    function processBatch(startIndex) {
+        const endIndex = Math.min(startIndex + batchSize, totalBusiness);
+        const batch = allBusinessData.slice(startIndex, endIndex);
         
-        const point = turf.point([parseFloat(usaha.longitude), parseFloat(usaha.latitude)]);
-        
-        geojsonData.features.forEach(feature => {
-            const idsubsls = feature.properties.idsubsls;
-            const nmkec = feature.properties.nmkec || "-";
-            const pengawas = feature.properties.pengawas || "Tidak Ada";
-            const pencacah = feature.properties.pencacah || "Tidak Ada";
+        for (const usaha of batch) {
+            const kategori = usaha.kategoriUsaha || "Lainnya";
+            const menggunakanInternet = usaha.isMenggunakanInternet === true || 
+                                       usaha.isMenggunakanInternet === "true" || 
+                                       usaha.isMenggunakanInternet === 1;
             
-            if (idsubsls && turf.booleanPointInPolygon(point, feature)) {
-                statistikData[idsubsls].total++;
-                if (menggunakanInternet) {
-                    statistikData[idsubsls].menggunakanInternet++;
-                }
-                if (!statistikData[idsubsls].kategori[kategori]) {
-                    statistikData[idsubsls].kategori[kategori] = 0;
-                }
-                statistikData[idsubsls].kategori[kategori]++;
-                
-                // Update per kecamatan
-                if (kecamatanMap.has(nmkec)) {
-                    kecamatanMap.get(nmkec).totalUsaha++;
+            const point = turf.point([parseFloat(usaha.longitude), parseFloat(usaha.latitude)]);
+            
+            // Cari polygon dengan spatial index
+            for (const item of spatialIndex) {
+                // Quick bounding box check
+                if (point.geometry.coordinates[0] < item.bbox[0] || 
+                    point.geometry.coordinates[0] > item.bbox[2] ||
+                    point.geometry.coordinates[1] < item.bbox[1] || 
+                    point.geometry.coordinates[1] > item.bbox[3]) {
+                    continue;
                 }
                 
-                // Update per pengawas
-                if (pengawasMap.has(pengawas)) {
-                    pengawasMap.get(pengawas).totalUsaha++;
-                }
-                
-                // Update per pencacah
-                if (pencacahMap.has(pencacah)) {
-                    pencacahMap.get(pencacah).totalUsaha++;
+                if (turf.booleanPointInPolygon(point, item.feature)) {
+                    const idsubsls = item.id;
+                    const data = statistikData[idsubsls];
+                    if (data) {
+                        data.total++;
+                        if (menggunakanInternet) data.menggunakanInternet++;
+                        if (!data.kategori[kategori]) data.kategori[kategori] = 0;
+                        data.kategori[kategori]++;
+                        
+                        // Update kecamatan
+                        const nmkec = item.feature.properties.nmkec || "-";
+                        if (kecamatanMap.has(nmkec)) {
+                            kecamatanMap.get(nmkec).totalUsaha++;
+                        }
+                        
+                        // Update pengawas
+                        const pengawas = item.feature.properties.pengawas || "Tidak Ada";
+                        if (pengawasMap.has(pengawas)) {
+                            pengawasMap.get(pengawas).totalUsaha++;
+                        }
+                        
+                        // Update pencacah
+                        const pencacah = item.feature.properties.pencacah || "Tidak Ada";
+                        if (pencacahMap.has(pencacah)) {
+                            pencacahMap.get(pencacah).totalUsaha++;
+                        }
+                    }
+                    break;
                 }
             }
-        });
-    });
+        }
+        
+        processed += batch.length;
+        
+        if (endIndex < totalBusiness) {
+            // Lanjutkan batch berikutnya
+            setTimeout(() => processBatch(endIndex), 0);
+        } else {
+            // Selesai semua batch
+            finalizeStatistics(kecamatanMap, pengawasMap, pencacahMap);
+            hideLoading();
+        }
+    }
     
-    // Konversi ke array
+    // Mulai proses batch
+    processBatch(0);
+}
+
+function finalizeStatistics(kecamatanMap, pengawasMap, pencacahMap) {
     rekapByKecamatan = Array.from(kecamatanMap.values())
         .map(kec => ({ ...kec, desa: Array.from(kec.desa) }))
         .sort((a, b) => a.nmkec.localeCompare(b.nmkec));
@@ -304,7 +363,7 @@ function hitungStatistikWilayah() {
     updatePopupWilayah();
 }
 
-// Update data untuk rekap dashboard
+// ==================== UPDATE REKAP DATA ====================
 function updateRekapData() {
     rekapData = Object.values(statistikData)
         .filter(wilayah => wilayah.idsubsls !== "unknown")
@@ -327,7 +386,7 @@ function updateRekapData() {
         .sort((a, b) => a.idsubsls.localeCompare(b.idsubsls));
 }
 
-// ==================== UPDATE RIGHT NAVIGASI SUB SLS ====================
+// ==================== UPDATE RIGHT NAV SUB SLS ====================
 function updateRightNavigationSubsls(filteredData) {
     const totalUsaha = filteredData.reduce((sum, item) => sum + item.totalUsaha, 0);
     const totalSLS = filteredData.length;
@@ -428,7 +487,6 @@ function updateRightNavigationSubsls(filteredData) {
         topSLSHtml = '<div style="text-align:center; color:#999; padding:20px;">Belum ada data</div>';
     }
     
-    // Update DOM
     const statRingkasDiv = document.getElementById('statRingkasSubsls');
     const topKategoriDiv = document.getElementById('topKategoriSubsls');
     const topSLSDiv = document.getElementById('topSLSSubsls');
@@ -454,7 +512,7 @@ function updateRightNavigationSubsls(filteredData) {
 
 // ==================== RENDER REKAP KECAMATAN ====================
 function renderRekapKecamatan() {
-    if (!rekapKecamatanContainer) return;
+    if (!document.getElementById('rekapKecamatanContainer')) return;
     
     let filteredData = [...rekapByKecamatan];
     if (currentKecamatanSearch) {
@@ -552,12 +610,12 @@ function renderRekapKecamatan() {
         html += `</div>`;
     }
     
-    rekapKecamatanContainer.innerHTML = html;
+    document.getElementById('rekapKecamatanContainer').innerHTML = html;
 }
 
 // ==================== RENDER REKAP SUB SLS ====================
 function renderRekapSubsls() {
-    if (!rekapSubslsContainer) return;
+    if (!document.getElementById('rekapSubslsContainer')) return;
     
     let filteredData = [...rekapData];
     if (currentRekapSearch) {
@@ -665,12 +723,12 @@ function renderRekapSubsls() {
         html += `</div>`;
     }
     
-    rekapSubslsContainer.innerHTML = html;
+    document.getElementById('rekapSubslsContainer').innerHTML = html;
 }
 
 // ==================== RENDER REKAP PENGAWAS ====================
 function renderRekapPengawas() {
-    if (!rekapPengawasContainer) return;
+    if (!document.getElementById('rekapPengawasContainer')) return;
     
     let filteredData = [...rekapByPengawas];
     if (currentPengawasSearch) {
@@ -766,12 +824,12 @@ function renderRekapPengawas() {
         html += `</div>`;
     }
     
-    rekapPengawasContainer.innerHTML = html;
+    document.getElementById('rekapPengawasContainer').innerHTML = html;
 }
 
 // ==================== RENDER REKAP PENCACAH ====================
 function renderRekapPencacah() {
-    if (!rekapPencacahContainer) return;
+    if (!document.getElementById('rekapPencacahContainer')) return;
     
     let filteredData = [...rekapByPencacah];
     if (currentPencacahSearch) {
@@ -867,10 +925,10 @@ function renderRekapPencacah() {
         html += `</div>`;
     }
     
-    rekapPencacahContainer.innerHTML = html;
+    document.getElementById('rekapPencacahContainer').innerHTML = html;
 }
 
-// ==================== FUNGSI NAVIGASI HALAMAN ====================
+// ==================== NAVIGASI HALAMAN ====================
 window.goToKecamatanPage = function(page) {
     currentKecamatanPage = page;
     renderRekapKecamatan();
@@ -907,60 +965,71 @@ window.zoomToSLS = function(idsubsls) {
     }, 300);
 };
 
-// ==================== FUNGSI RENDER DISPLAY PETA ====================
+// ==================== RENDER DISPLAY PETA (OPTIMASI) ====================
 function renderDisplay(filterValue) {
     dataList.innerHTML = "";
-    allMarkers.clearLayers();
+    markerCluster.clearLayers();
 
-    allBusinessData.forEach(data => {
+    const filteredData = filterValue === "Semua" 
+        ? allBusinessData 
+        : allBusinessData.filter(data => (data.kategoriUsaha || "Lainnya") === filterValue);
+
+    const markers = [];
+    const items = [];
+
+    filteredData.forEach(data => {
+        const displayName = getDisplayName(data);
         const kategori = data.kategoriUsaha || "Lainnya";
+        const internetStatus = data.isMenggunakanInternet === true ? '✅ Ya' : '❌ Tidak';
         
-        if (filterValue === "Semua" || kategori === filterValue) {
-            const marker = L.marker([data.latitude, data.longitude]);
-            const internetStatus = data.isMenggunakanInternet === true ? '✅ Ya' : '❌ Tidak';
-            
-            const displayName = getDisplayName(data);
-            
-            marker.bindPopup(`
-                <b>${displayName}</b><br>
-                Kategori: ${kategori}<br>
-                🌐 Internet: ${internetStatus}
-            `);
-            
-            marker.bindTooltip(displayName, {
-                permanent: false,
-                direction: 'top',
-                offset: [0, -20]
-            });
-            
-            allMarkers.addLayer(marker);
-
-            const div = document.createElement('div');
-            div.className = 'item';
-            div.innerHTML = `
-                <h4>${displayName}</h4>
-                <p>Kategori: ${kategori}</p>
-                <p>🌐 Internet: ${internetStatus}</p>
-            `;
-            
-            div.onclick = () => {
-                if (currentlySelectedMarker) currentlySelectedMarker.setIcon(new L.Icon.Default());
-                marker.setIcon(redIcon);
-                currentlySelectedMarker = marker;
-                map.flyTo([data.latitude, data.longitude], 17);
-                marker.openPopup();
-            };
-            dataList.appendChild(div);
-        }
+        const marker = L.marker([data.latitude, data.longitude]);
+        marker.bindPopup(`
+            <b>${displayName}</b><br>
+            Kategori: ${kategori}<br>
+            🌐 Internet: ${internetStatus}
+        `);
+        marker.bindTooltip(displayName, {
+            permanent: false,
+            direction: 'top',
+            offset: [0, -20]
+        });
+        
+        markers.push(marker);
+        
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.innerHTML = `
+            <h4>${displayName}</h4>
+            <p>Kategori: ${kategori}</p>
+            <p>🌐 Internet: ${internetStatus}</p>
+        `;
+        div.onclick = () => {
+            if (currentlySelectedMarker) currentlySelectedMarker.setIcon(defaultIcon);
+            marker.setIcon(redIcon);
+            currentlySelectedMarker = marker;
+            map.flyTo([data.latitude, data.longitude], 17);
+            marker.openPopup();
+        };
+        items.push(div);
     });
+
+    // Tambahkan semua marker sekaligus
+    if (markers.length > 0) {
+        markerCluster.addLayers(markers);
+    }
+    
+    // Tambahkan semua item sekaligus
+    const fragment = document.createDocumentFragment();
+    items.forEach(item => fragment.appendChild(item));
+    dataList.appendChild(fragment);
     
     const totalCount = document.getElementById('totalUsahaCount');
-    if (totalCount) {
-        totalCount.textContent = allBusinessData.length;
-    }
+    const totalCount2 = document.getElementById('totalUsahaCount2');
+    if (totalCount) totalCount.textContent = allBusinessData.length;
+    if (totalCount2) totalCount2.textContent = allBusinessData.length;
 }
 
-// ==================== FUNGSI STATISTIK WILAYAH ====================
+// ==================== STATISTIK WILAYAH ====================
 function tampilkanStatistik() {
     let statsDiv = document.getElementById('statsWilayah');
     if (!statsDiv) {
@@ -1053,10 +1122,17 @@ function tampilkanStatistik() {
     statsContent.innerHTML = html;
 }
 
+// ==================== UPDATE POPUP WILAYAH ====================
 function updatePopupWilayah() {
     Object.keys(regionLayers).forEach(idsubsls => {
         const layer = regionLayers[idsubsls];
         if (layer && statistikData[idsubsls]) {
+            // Cek cache
+            if (popupCache.has(idsubsls)) {
+                layer.bindPopup(popupCache.get(idsubsls));
+                return;
+            }
+            
             const data = statistikData[idsubsls];
             const total = data.total || 0;
             const menggunakanInternet = data.menggunakanInternet || 0;
@@ -1067,25 +1143,28 @@ function updatePopupWilayah() {
             
             let daftarUsahaHtml = '';
             if (total > 0 && total <= 10) {
-                const usahaDiWilayah = allBusinessData.filter(usaha => {
+                const usahaDiWilayah = [];
+                for (const usaha of allBusinessData) {
                     const point = turf.point([parseFloat(usaha.longitude), parseFloat(usaha.latitude)]);
-                    return turf.booleanPointInPolygon(point, layer.feature);
-                });
+                    if (turf.booleanPointInPolygon(point, layer.feature)) {
+                        usahaDiWilayah.push(usaha);
+                        if (usahaDiWilayah.length >= 5) break;
+                    }
+                }
                 
                 if (usahaDiWilayah.length > 0) {
                     daftarUsahaHtml = '<div style="margin-top:8px"><strong>📋 Daftar Usaha:</strong><br>';
-                    usahaDiWilayah.slice(0, 5).forEach(usaha => {
-                        const displayName = getDisplayName(usaha);
-                        daftarUsahaHtml += `• ${displayName}<br>`;
+                    usahaDiWilayah.forEach(usaha => {
+                        daftarUsahaHtml += `• ${getDisplayName(usaha)}<br>`;
                     });
-                    if (usahaDiWilayah.length > 5) {
-                        daftarUsahaHtml += `<small>dan ${usahaDiWilayah.length - 5} usaha lainnya...</small>`;
+                    if (total > 5) {
+                        daftarUsahaHtml += `<small>dan ${total - 5} usaha lainnya...</small>`;
                     }
                     daftarUsahaHtml += '</div>';
                 }
             }
             
-            layer.bindPopup(`
+            const popupContent = `
                 <div style="min-width:280px; max-width:350px; max-height:400px; overflow-y:auto;">
                     <b>🏢 ${data.nmsubsls || '-'}</b><br>
                     <small>ID SUB SLS: ${data.idsubsls || '-'}</small><br>
@@ -1103,12 +1182,15 @@ function updatePopupWilayah() {
                     </div>
                     ${daftarUsahaHtml}
                 </div>
-            `);
+            `;
+            
+            popupCache.set(idsubsls, popupContent);
+            layer.bindPopup(popupContent);
         }
     });
 }
 
-// Fungsi global
+// ==================== TOGGLE STATS ====================
 window.toggleStats = function() {
     const content = document.getElementById('statsContent');
     const icon = document.getElementById('statsToggleIcon');
@@ -1130,6 +1212,7 @@ window.zoomKeWilayah = function(idsubsls) {
     }
 };
 
+// ==================== INIT RESIZABLE STATS ====================
 function initResizableStats() {
     const handle = document.querySelector('.stats-resize-handle');
     const statsContent = document.getElementById('statsContent');
@@ -1191,589 +1274,39 @@ function initResizableStats() {
     statsContent.style.overflowY = 'auto';
 }
 
-// ==================== EVENT LISTENER REKAP KECAMATAN ====================
-if (searchKecamatan) {
-    searchKecamatan.addEventListener('input', (e) => {
-        currentKecamatanSearch = e.target.value;
-        currentKecamatanPage = 1;
-        renderRekapKecamatan();
-    });
-}
-
-if (exportExcelKecamatan) {
-    exportExcelKecamatan.addEventListener('click', () => {
-        let dataToExport = [...rekapByKecamatan];
-        if (currentKecamatanSearch) {
-            dataToExport = dataToExport.filter(item => 
-                item.nmkec.toLowerCase().includes(currentKecamatanSearch.toLowerCase())
-            );
-        }
-        
-        const excelData = dataToExport.map((item, index) => ({
-            'No': index + 1,
-            'Kecamatan': item.nmkec,
-            'Jumlah SUB SLS': item.jumlahSUB,
-            'Total Usaha (Real)': item.totalUsaha,
-            'Perkiraan Usaha': item.totalUsahaGeoJSON || 0,
-            'Muatan': item.totalMuatanGeoJSON || 0,
-            'Desa': item.desa.join(', ')
-        }));
-        
-        const headers = Object.keys(excelData[0]);
-        const csvContent = [
-            headers.join(','),
-            ...excelData.map(row => headers.map(header => `"${row[header]}"`).join(','))
-        ].join('\n');
-        
-        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.href = url;
-        link.setAttribute('download', `rekap_usaha_per_kecamatan_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        alert('Export Excel Kecamatan berhasil!');
-    });
-}
-
-if (exportPDFKecamatan) {
-    exportPDFKecamatan.addEventListener('click', () => {
-        let dataToExport = [...rekapByKecamatan];
-        if (currentKecamatanSearch) {
-            dataToExport = dataToExport.filter(item => 
-                item.nmkec.toLowerCase().includes(currentKecamatanSearch.toLowerCase())
-            );
-        }
-        
-        let htmlContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <title>Rekap Total Usaha per Kecamatan</title>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; }
-                    h2 { color: #1a1a2e; text-align: center; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 11px; }
-                    th { background-color: #28a745; color: white; }
-                    .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #666; }
-                    .highlight { background-color: #fff3cd; }
-                </style>
-            </head>
-            <body>
-                <h2>Rekap Total Usaha per Kecamatan</h2>
-                <p>Tanggal: ${new Date().toLocaleString('id-ID')}</p>
-                <p>Total Kecamatan: ${dataToExport.length} | Total Usaha: ${dataToExport.reduce((s, i) => s + i.totalUsaha, 0)}</p>
-                <p>Total Perkiraan Usaha: ${dataToExport.reduce((s, i) => s + (i.totalUsahaGeoJSON || 0), 0)} | Total Muatan: ${dataToExport.reduce((s, i) => s + (i.totalMuatanGeoJSON || 0), 0)}</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>No</th>
-                            <th>Kecamatan</th>
-                            <th>Jumlah SUB SLS</th>
-                            <th>Total Usaha</th>
-                            <th>Perkiraan Usaha</th>
-                            <th>Muatan</th>
-                            <th>Desa</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-        
-        dataToExport.forEach((item, index) => {
-            const isDifferent = item.totalUsaha !== item.totalUsahaGeoJSON;
-            const rowClass = isDifferent ? 'class="highlight"' : '';
-            htmlContent += `<tr ${rowClass}>
-                <td>${index + 1}</td>
-                <td>${item.nmkec}</td>
-                <td style="text-align:center">${item.jumlahSUB}</td>
-                <td style="text-align:center">${item.totalUsaha}</td>
-                <td style="text-align:center">${item.totalUsahaGeoJSON || 0}</td>
-                <td style="text-align:center">${item.totalMuatanGeoJSON || 0}</td>
-                <td>${item.desa.join(', ')}</td>
-            </tr>`;
-        });
-        
-        htmlContent += `
-                    </tbody>
-                </table>
-                <div class="footer">Dicetak dari Dashboard Monitoring Usaha</div>
-                <p style="font-size: 9px; color: #666; margin-top: 10px;">
-                    * Baris dengan latar kuning menandakan perbedaan antara Total Usaha dan Perkiraan Usaha
-                </p>
-            </body>
-            </html>
-        `;
-        
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-        printWindow.print();
-        printWindow.close();
-    });
-}
-
-// ==================== EVENT LISTENER REKAP SUB SLS ====================
-if (searchSubsls) {
-    searchSubsls.addEventListener('input', (e) => {
-        currentRekapSearch = e.target.value;
-        currentRekapPage = 1;
-        renderRekapSubsls();
-    });
-}
-
-if (exportExcelSubsls) {
-    exportExcelSubsls.addEventListener('click', () => {
-        let dataToExport = [...rekapData];
-        if (currentRekapSearch) {
-            dataToExport = dataToExport.filter(item => 
-                item.idsubsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
-                item.nmsubsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
-                item.nmkec.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
-                item.nmdesa.toLowerCase().includes(currentRekapSearch.toLowerCase())
-            );
-        }
-        
-        const excelData = dataToExport.map((item, index) => ({
-            'No': index + 1,
-            'ID SUB SLS': item.idsubsls,
-            'Nama SUB SLS': item.nmsubsls,
-            'IDSLS': item.idsls || '-',
-            'Kecamatan': item.nmkec,
-            'Desa': item.nmdesa,
-            'Total Usaha (Real)': item.totalUsaha,
-            'Perkiraan Usaha': item.usahaGeoJSON || 0,
-            'Muatan': item.muatanGeoJSON || 0,
-            'Menggunakan Internet': item.menggunakanInternet,
-            'Tidak Pakai Internet': item.tidakMenggunakanInternet,
-            'Persen Internet': item.persenInternet + '%'
-        }));
-        
-        const headers = Object.keys(excelData[0]);
-        const csvContent = [
-            headers.join(','),
-            ...excelData.map(row => headers.map(header => `"${row[header]}"`).join(','))
-        ].join('\n');
-        
-        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.href = url;
-        link.setAttribute('download', `rekap_usaha_per_subsls_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        alert('Export Excel SUB SLS berhasil!');
-    });
-}
-
-if (exportPDFSubsls) {
-    exportPDFSubsls.addEventListener('click', () => {
-        let dataToExport = [...rekapData];
-        if (currentRekapSearch) {
-            dataToExport = dataToExport.filter(item => 
-                item.idsubsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
-                item.nmsubsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
-                item.nmkec.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
-                item.nmdesa.toLowerCase().includes(currentRekapSearch.toLowerCase())
-            );
-        }
-        
-        let htmlContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <title>Rekap Total Usaha per SUB SLS</title>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; }
-                    h2 { color: #1a1a2e; text-align: center; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 9px; }
-                    th { background-color: #667eea; color: white; }
-                    .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #666; }
-                    .highlight { background-color: #fff3cd; }
-                </style>
-            </head>
-            <body>
-                <h2>Rekap Total Usaha per SUB SLS</h2>
-                <p>Tanggal: ${new Date().toLocaleString('id-ID')}</p>
-                <p>Total SUB SLS: ${dataToExport.length} | Total Usaha: ${dataToExport.reduce((s, i) => s + i.totalUsaha, 0)}</p>
-                <p>Total Perkiraan Usaha: ${dataToExport.reduce((s, i) => s + (i.usahaGeoJSON || 0), 0)} | Total Muatan: ${dataToExport.reduce((s, i) => s + (i.muatanGeoJSON || 0), 0)}</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>No</th>
-                            <th>ID SUB SLS</th>
-                            <th>Nama SUB SLS</th>
-                            <th>IDSLS</th>
-                            <th>Kecamatan</th>
-                            <th>Desa</th>
-                            <th>Total Usaha</th>
-                            <th>Perkiraan Usaha</th>
-                            <th>Muatan</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-        
-        dataToExport.forEach((item, index) => {
-            const isDifferent = item.totalUsaha !== item.usahaGeoJSON;
-            const rowClass = isDifferent ? 'class="highlight"' : '';
-            htmlContent += `<tr ${rowClass}>
-                <td>${index + 1}</td>
-                <td>${item.idsubsls}</td>
-                <td>${item.nmsubsls}</td>
-                <td>${item.idsls || '-'}</td>
-                <td>${item.nmkec}</td>
-                <td>${item.nmdesa}</td>
-                <td style="text-align:center">${item.totalUsaha}</td>
-                <td style="text-align:center">${item.usahaGeoJSON || 0}</td>
-                <td style="text-align:center">${item.muatanGeoJSON || 0}</td>
-            </tr>`;
-        });
-        
-        htmlContent += `
-                    </tbody>
-                </table>
-                <div class="footer">Dicetak dari Dashboard Monitoring Usaha</div>
-                <p style="font-size: 9px; color: #666; margin-top: 10px;">
-                    * Baris dengan latar kuning menandakan perbedaan antara Total Usaha dan Perkiraan Usaha
-                </p>
-            </body>
-            </html>
-        `;
-        
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-        printWindow.print();
-        printWindow.close();
-    });
-}
-
-// ==================== EVENT LISTENER REKAP PENGAWAS ====================
-if (searchPengawas) {
-    searchPengawas.addEventListener('input', (e) => {
-        currentPengawasSearch = e.target.value;
-        currentPengawasPage = 1;
-        renderRekapPengawas();
-    });
-}
-
-if (exportExcelPengawas) {
-    exportExcelPengawas.addEventListener('click', () => {
-        let dataToExport = [...rekapByPengawas];
-        if (currentPengawasSearch) {
-            dataToExport = dataToExport.filter(item => 
-                item.namaPengawas.toLowerCase().includes(currentPengawasSearch.toLowerCase())
-            );
-        }
-        
-        const excelData = dataToExport.map((item, index) => ({
-            'No': index + 1,
-            'Nama Pengawas': item.namaPengawas,
-            'Jumlah SUB SLS': item.jumlahSUB,
-            'Total Usaha (Real)': item.totalUsaha,
-            'Perkiraan Usaha': item.totalUsahaGeoJSON || 0,
-            'Muatan': item.totalMuatanGeoJSON || 0,
-            'Kecamatan': item.kecamatan.join(', '),
-            'Desa': item.desa.join(', ')
-        }));
-        
-        const headers = Object.keys(excelData[0]);
-        const csvContent = [
-            headers.join(','),
-            ...excelData.map(row => headers.map(header => `"${row[header]}"`).join(','))
-        ].join('\n');
-        
-        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.href = url;
-        link.setAttribute('download', `rekap_usaha_per_pengawas_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        alert('Export Excel Pengawas berhasil!');
-    });
-}
-
-if (exportPDFPengawas) {
-    exportPDFPengawas.addEventListener('click', () => {
-        let dataToExport = [...rekapByPengawas];
-        if (currentPengawasSearch) {
-            dataToExport = dataToExport.filter(item => 
-                item.namaPengawas.toLowerCase().includes(currentPengawasSearch.toLowerCase())
-            );
-        }
-        
-        let htmlContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <title>Rekap Total Usaha per Pengawas</title>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; }
-                    h2 { color: #e67e22; text-align: center; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 10px; }
-                    th { background-color: #e67e22; color: white; }
-                    .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #666; }
-                    .highlight { background-color: #fff3cd; }
-                </style>
-            </head>
-            <body>
-                <h2>Rekap Total Usaha per Pengawas</h2>
-                <p>Tanggal: ${new Date().toLocaleString('id-ID')}</p>
-                <p>Total Pengawas: ${dataToExport.length} | Total Usaha: ${dataToExport.reduce((s, i) => s + i.totalUsaha, 0)}</p>
-                <p>Total Perkiraan Usaha: ${dataToExport.reduce((s, i) => s + (i.totalUsahaGeoJSON || 0), 0)} | Total Muatan: ${dataToExport.reduce((s, i) => s + (i.totalMuatanGeoJSON || 0), 0)}</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>No</th>
-                            <th>Nama Pengawas</th>
-                            <th>Jumlah SUB SLS</th>
-                            <th>Total Usaha</th>
-                            <th>Perkiraan Usaha</th>
-                            <th>Muatan</th>
-                            <th>Kecamatan</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-        
-        dataToExport.forEach((item, index) => {
-            const isDifferent = item.totalUsaha !== item.totalUsahaGeoJSON;
-            const rowClass = isDifferent ? 'class="highlight"' : '';
-            htmlContent += `<tr ${rowClass}>
-                <td>${index + 1}</td>
-                <td>${item.namaPengawas}</td>
-                <td style="text-align:center">${item.jumlahSUB}</td>
-                <td style="text-align:center">${item.totalUsaha}</td>
-                <td style="text-align:center">${item.totalUsahaGeoJSON || 0}</td>
-                <td style="text-align:center">${item.totalMuatanGeoJSON || 0}</td>
-                <td>${item.kecamatan.join(', ')}</td>
-            </tr>`;
-        });
-        
-        htmlContent += `
-                    </tbody>
-                </table>
-                <div class="footer">Dicetak dari Dashboard Monitoring Usaha</div>
-                <p style="font-size: 9px; color: #666; margin-top: 10px;">
-                    * Baris dengan latar kuning menandakan perbedaan antara Total Usaha dan Perkiraan Usaha
-                </p>
-            </body>
-            </html>
-        `;
-        
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-        printWindow.print();
-        printWindow.close();
-    });
-}
-
-// ==================== EVENT LISTENER REKAP PENCACAH ====================
-if (searchPencacah) {
-    searchPencacah.addEventListener('input', (e) => {
-        currentPencacahSearch = e.target.value;
-        currentPencacahPage = 1;
-        renderRekapPencacah();
-    });
-}
-
-if (exportExcelPencacah) {
-    exportExcelPencacah.addEventListener('click', () => {
-        let dataToExport = [...rekapByPencacah];
-        if (currentPencacahSearch) {
-            dataToExport = dataToExport.filter(item => 
-                item.namaPencacah.toLowerCase().includes(currentPencacahSearch.toLowerCase())
-            );
-        }
-        
-        const excelData = dataToExport.map((item, index) => ({
-            'No': index + 1,
-            'Nama Pencacah': item.namaPencacah,
-            'Jumlah SUB SLS': item.jumlahSUB,
-            'Total Usaha (Real)': item.totalUsaha,
-            'Perkiraan Usaha': item.totalUsahaGeoJSON || 0,
-            'Muatan': item.totalMuatanGeoJSON || 0,
-            'Kecamatan': item.kecamatan.join(', '),
-            'Desa': item.desa.join(', ')
-        }));
-        
-        const headers = Object.keys(excelData[0]);
-        const csvContent = [
-            headers.join(','),
-            ...excelData.map(row => headers.map(header => `"${row[header]}"`).join(','))
-        ].join('\n');
-        
-        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.href = url;
-        link.setAttribute('download', `rekap_usaha_per_pencacah_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        alert('Export Excel Pencacah berhasil!');
-    });
-}
-
-if (exportPDFPencacah) {
-    exportPDFPencacah.addEventListener('click', () => {
-        let dataToExport = [...rekapByPencacah];
-        if (currentPencacahSearch) {
-            dataToExport = dataToExport.filter(item => 
-                item.namaPencacah.toLowerCase().includes(currentPencacahSearch.toLowerCase())
-            );
-        }
-        
-        let htmlContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <title>Rekap Total Usaha per Pencacah</title>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; }
-                    h2 { color: #8e44ad; text-align: center; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 10px; }
-                    th { background-color: #8e44ad; color: white; }
-                    .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #666; }
-                    .highlight { background-color: #fff3cd; }
-                </style>
-            </head>
-            <body>
-                <h2>Rekap Total Usaha per Pencacah</h2>
-                <p>Tanggal: ${new Date().toLocaleString('id-ID')}</p>
-                <p>Total Pencacah: ${dataToExport.length} | Total Usaha: ${dataToExport.reduce((s, i) => s + i.totalUsaha, 0)}</p>
-                <p>Total Perkiraan Usaha: ${dataToExport.reduce((s, i) => s + (i.totalUsahaGeoJSON || 0), 0)} | Total Muatan: ${dataToExport.reduce((s, i) => s + (i.totalMuatanGeoJSON || 0), 0)}</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>No</th>
-                            <th>Nama Pencacah</th>
-                            <th>Jumlah SUB SLS</th>
-                            <th>Total Usaha</th>
-                            <th>Perkiraan Usaha</th>
-                            <th>Muatan</th>
-                            <th>Kecamatan</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-        
-        dataToExport.forEach((item, index) => {
-            const isDifferent = item.totalUsaha !== item.totalUsahaGeoJSON;
-            const rowClass = isDifferent ? 'class="highlight"' : '';
-            htmlContent += `<tr ${rowClass}>
-                <td>${index + 1}</td>
-                <td>${item.namaPencacah}</td>
-                <td style="text-align:center">${item.jumlahSUB}</td>
-                <td style="text-align:center">${item.totalUsaha}</td>
-                <td style="text-align:center">${item.totalUsahaGeoJSON || 0}</td>
-                <td style="text-align:center">${item.totalMuatanGeoJSON || 0}</td>
-                <td>${item.kecamatan.join(', ')}</td>
-            </tr>`;
-        });
-        
-        htmlContent += `
-                    </tbody>
-                </table>
-                <div class="footer">Dicetak dari Dashboard Monitoring Usaha</div>
-                <p style="font-size: 9px; color: #666; margin-top: 10px;">
-                    * Baris dengan latar kuning menandakan perbedaan antara Total Usaha dan Perkiraan Usaha
-                </p>
-            </body>
-            </html>
-        `;
-        
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-        printWindow.print();
-        printWindow.close();
-    });
-}
-
-// ==================== LOAD DATA ====================
-// LOAD GEOJSON
-fetch('data/wilayah.geojson')
-    .then(res => res.json())
-    .then(data => {
-        geojsonData = data;
-        
-        geoJsonLayer = L.geoJSON(data, {
-            style: { color: "#ff7800", weight: 2, fillOpacity: 0.1 },
-            onEachFeature: (feature, layer) => {
-                const idsubsls = feature.properties.idsubsls || feature.properties.idsls || "Tanpa ID";
-                regionLayers[idsubsls] = layer;
-            }
-        }).addTo(map);
-
-        if (geoJsonLayer.getBounds().isValid()) {
-            map.fitBounds(geoJsonLayer.getBounds());
-            console.log('Peta langsung zoom ke area GeoJSON');
-        }
-
-        Object.keys(regionLayers).sort().forEach(id => {
-            const option = document.createElement('option');
-            option.value = id;
-            idslsList.appendChild(option);
-        });
-        
-        if (allBusinessData.length > 0) hitungStatistikWilayah();
-    })
-    .catch(error => console.error('Error loading GeoJSON:', error));
-
-// LOAD FIREBASE
-const dbRef = ref(db, 'tagging_usaha');
-onValue(dbRef, (snapshot) => {
-    allBusinessData = [];
-    const kategoriSet = new Set();
-
-    snapshot.forEach((child) => {
-        const data = child.val();
-        if (data.latitude && data.longitude) {
-            allBusinessData.push(data);
-            kategoriSet.add(data.kategoriUsaha || "Lainnya");
-        }
-    });
-
-    updateFilterOptions(kategoriSet);
-    renderDisplay("Semua");
-    if (geojsonData) hitungStatistikWilayah();
+// ==================== EVENT LISTENERS ====================
+// Search Kecamatan
+document.getElementById('searchKecamatan')?.addEventListener('input', (e) => {
+    currentKecamatanSearch = e.target.value;
+    currentKecamatanPage = 1;
+    renderRekapKecamatan();
 });
 
-function updateFilterOptions(kategoriSet) {
-    filterKategori.innerHTML = '<option value="Semua">-- Semua Kategori --</option>';
-    Array.from(kategoriSet).sort().forEach(kat => {
-        const option = document.createElement('option');
-        option.value = kat;
-        option.textContent = kat;
-        filterKategori.appendChild(option);
-    });
-}
+// Search Subsls
+document.getElementById('searchSubsls')?.addEventListener('input', (e) => {
+    currentRekapSearch = e.target.value;
+    currentRekapPage = 1;
+    renderRekapSubsls();
+});
 
-// ==================== EVENT LISTENERS PETA ====================
+// Search Pengawas
+document.getElementById('searchPengawas')?.addEventListener('input', (e) => {
+    currentPengawasSearch = e.target.value;
+    currentPengawasPage = 1;
+    renderRekapPengawas();
+});
+
+// Search Pencacah
+document.getElementById('searchPencacah')?.addEventListener('input', (e) => {
+    currentPencacahSearch = e.target.value;
+    currentPencacahPage = 1;
+    renderRekapPencacah();
+});
+
+// Filter Kategori
 filterKategori.addEventListener('change', (e) => renderDisplay(e.target.value));
 
+// Search Usaha
 searchInput.addEventListener('input', (e) => {
     const filter = e.target.value.toLowerCase();
     document.querySelectorAll('.item').forEach(item => {
@@ -1782,6 +1315,7 @@ searchInput.addEventListener('input', (e) => {
     });
 });
 
+// Search IDSLS
 searchIdsls.addEventListener('input', (e) => {
     const value = e.target.value;
     if (regionLayers[value]) {
@@ -1790,7 +1324,218 @@ searchIdsls.addEventListener('input', (e) => {
     }
 });
 
-// ==================== FUNGSI TOGGLE NAVIGASI ====================
+// ==================== EXPORT FUNCTIONS ====================
+// Export Excel Kecamatan
+document.getElementById('exportExcelKecamatan')?.addEventListener('click', () => {
+    let dataToExport = [...rekapByKecamatan];
+    if (currentKecamatanSearch) {
+        dataToExport = dataToExport.filter(item => 
+            item.nmkec.toLowerCase().includes(currentKecamatanSearch.toLowerCase())
+        );
+    }
+    
+    const excelData = dataToExport.map((item, index) => ({
+        'No': index + 1,
+        'Kecamatan': item.nmkec,
+        'Jumlah SUB SLS': item.jumlahSUB,
+        'Total Usaha (Real)': item.totalUsaha,
+        'Perkiraan Usaha': item.totalUsahaGeoJSON || 0,
+        'Muatan': item.totalMuatanGeoJSON || 0,
+        'Desa': item.desa.join(', ')
+    }));
+    
+    exportCSV(excelData, `rekap_usaha_per_kecamatan_${new Date().toISOString().split('T')[0]}.csv`);
+});
+
+// Export Excel Subsls
+document.getElementById('exportExcelSubsls')?.addEventListener('click', () => {
+    let dataToExport = [...rekapData];
+    if (currentRekapSearch) {
+        dataToExport = dataToExport.filter(item => 
+            item.idsubsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
+            item.nmsubsls.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
+            item.nmkec.toLowerCase().includes(currentRekapSearch.toLowerCase()) ||
+            item.nmdesa.toLowerCase().includes(currentRekapSearch.toLowerCase())
+        );
+    }
+    
+    const excelData = dataToExport.map((item, index) => ({
+        'No': index + 1,
+        'ID SUB SLS': item.idsubsls,
+        'Nama SUB SLS': item.nmsubsls,
+        'IDSLS': item.idsls || '-',
+        'Kecamatan': item.nmkec,
+        'Desa': item.nmdesa,
+        'Total Usaha (Real)': item.totalUsaha,
+        'Perkiraan Usaha': item.usahaGeoJSON || 0,
+        'Muatan': item.muatanGeoJSON || 0,
+        'Menggunakan Internet': item.menggunakanInternet,
+        'Tidak Pakai Internet': item.tidakMenggunakanInternet,
+        'Persen Internet': item.persenInternet + '%'
+    }));
+    
+    exportCSV(excelData, `rekap_usaha_per_subsls_${new Date().toISOString().split('T')[0]}.csv`);
+});
+
+// Export Excel Pengawas
+document.getElementById('exportExcelPengawas')?.addEventListener('click', () => {
+    let dataToExport = [...rekapByPengawas];
+    if (currentPengawasSearch) {
+        dataToExport = dataToExport.filter(item => 
+            item.namaPengawas.toLowerCase().includes(currentPengawasSearch.toLowerCase())
+        );
+    }
+    
+    const excelData = dataToExport.map((item, index) => ({
+        'No': index + 1,
+        'Nama Pengawas': item.namaPengawas,
+        'Jumlah SUB SLS': item.jumlahSUB,
+        'Total Usaha (Real)': item.totalUsaha,
+        'Perkiraan Usaha': item.totalUsahaGeoJSON || 0,
+        'Muatan': item.totalMuatanGeoJSON || 0,
+        'Kecamatan': item.kecamatan.join(', '),
+        'Desa': item.desa.join(', ')
+    }));
+    
+    exportCSV(excelData, `rekap_usaha_per_pengawas_${new Date().toISOString().split('T')[0]}.csv`);
+});
+
+// Export Excel Pencacah
+document.getElementById('exportExcelPencacah')?.addEventListener('click', () => {
+    let dataToExport = [...rekapByPencacah];
+    if (currentPencacahSearch) {
+        dataToExport = dataToExport.filter(item => 
+            item.namaPencacah.toLowerCase().includes(currentPencacahSearch.toLowerCase())
+        );
+    }
+    
+    const excelData = dataToExport.map((item, index) => ({
+        'No': index + 1,
+        'Nama Pencacah': item.namaPencacah,
+        'Jumlah SUB SLS': item.jumlahSUB,
+        'Total Usaha (Real)': item.totalUsaha,
+        'Perkiraan Usaha': item.totalUsahaGeoJSON || 0,
+        'Muatan': item.totalMuatanGeoJSON || 0,
+        'Kecamatan': item.kecamatan.join(', '),
+        'Desa': item.desa.join(', ')
+    }));
+    
+    exportCSV(excelData, `rekap_usaha_per_pencacah_${new Date().toISOString().split('T')[0]}.csv`);
+});
+
+// Export PDF Functions
+document.getElementById('exportPDFKecamatan')?.addEventListener('click', () => {
+    exportPDF('Kecamatan', rekapByKecamatan, currentKecamatanSearch, 'nmkec');
+});
+
+document.getElementById('exportPDFSubsls')?.addEventListener('click', () => {
+    exportPDF('SUB SLS', rekapData, currentRekapSearch, 'idsubsls');
+});
+
+document.getElementById('exportPDFPengawas')?.addEventListener('click', () => {
+    exportPDF('Pengawas', rekapByPengawas, currentPengawasSearch, 'namaPengawas');
+});
+
+document.getElementById('exportPDFPencacah')?.addEventListener('click', () => {
+    exportPDF('Pencacah', rekapByPencacah, currentPencacahSearch, 'namaPencacah');
+});
+
+// ==================== UTILITY EXPORT FUNCTIONS ====================
+function exportCSV(data, filename) {
+    if (!data || data.length === 0) {
+        alert('Tidak ada data untuk diexport!');
+        return;
+    }
+    
+    const headers = Object.keys(data[0]);
+    const csvContent = [
+        headers.join(','),
+        ...data.map(row => headers.map(header => `"${row[header]}"`).join(','))
+    ].join('\n');
+    
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    alert(`Export Excel berhasil!`);
+}
+
+function exportPDF(type, data, search, keyField) {
+    let filteredData = [...data];
+    if (search) {
+        filteredData = filteredData.filter(item => 
+            String(item[keyField] || '').toLowerCase().includes(search.toLowerCase())
+        );
+    }
+    
+    if (!filteredData || filteredData.length === 0) {
+        alert('Tidak ada data untuk diexport!');
+        return;
+    }
+    
+    let htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Rekap Total Usaha per ${type}</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                h2 { color: #1a1a2e; text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 10px; }
+                th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+                th { background-color: #667eea; color: white; }
+                .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #666; }
+                .highlight { background-color: #fff3cd; }
+            </style>
+        </head>
+        <body>
+            <h2>Rekap Total Usaha per ${type}</h2>
+            <p>Tanggal: ${new Date().toLocaleString('id-ID')}</p>
+            <p>Total Data: ${filteredData.length}</p>
+            <table>
+                <thead>
+                    <tr>
+    `;
+    
+    // Generate header berdasarkan tipe
+    const headers = Object.keys(filteredData[0]);
+    headers.forEach(h => {
+        htmlContent += `<th>${h}</th>`;
+    });
+    htmlContent += `</tr></thead><tbody>`;
+    
+    filteredData.forEach((item, index) => {
+        htmlContent += `<tr>`;
+        headers.forEach(h => {
+            const val = item[h] !== undefined && item[h] !== null ? item[h] : '-';
+            htmlContent += `<td>${typeof val === 'object' ? JSON.stringify(val) : val}</td>`;
+        });
+        htmlContent += `</tr>`;
+    });
+    
+    htmlContent += `
+                </tbody>
+            </table>
+            <div class="footer">Dicetak dari Dashboard Monitoring Usaha</div>
+        </body>
+        </html>
+    `;
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.print();
+    printWindow.close();
+}
+
+// ==================== TOGGLE NAV ====================
 window.toggleNav = function() {
     const leftNav = document.getElementById('leftNav');
     const toggleIcon = document.getElementById('toggleIcon');
@@ -1814,7 +1559,7 @@ window.toggleNav = function() {
     }, 350);
 };
 
-// Keyboard shortcut: Ctrl + B untuk toggle
+// Keyboard shortcut: Ctrl + B
 document.addEventListener('keydown', function(e) {
     if (e.ctrlKey && (e.key === 'b' || e.key === 'B')) {
         e.preventDefault();
@@ -1822,29 +1567,99 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Hover tooltip untuk collapsed state
-const leftNav = document.getElementById('leftNav');
-if (leftNav) {
-    leftNav.addEventListener('mouseenter', function() {
-        if (this.classList.contains('collapsed')) {
-            const tooltip = document.getElementById('navTooltip');
-            if (tooltip) {
-                tooltip.style.opacity = '1';
+// ==================== LOAD DATA ====================
+// LOAD GEOJSON
+fetch('data/wilayah.geojson')
+    .then(res => res.json())
+    .then(data => {
+        geojsonData = data;
+        
+        geoJsonLayer = L.geoJSON(data, {
+            style: { color: "#ff7800", weight: 2, fillOpacity: 0.1 },
+            onEachFeature: (feature, layer) => {
+                const idsubsls = feature.properties.idsubsls || feature.properties.idsls || "Tanpa ID";
+                regionLayers[idsubsls] = layer;
             }
+        }).addTo(map);
+
+        if (geoJsonLayer.getBounds().isValid()) {
+            map.fitBounds(geoJsonLayer.getBounds());
+            console.log('Peta langsung zoom ke area GeoJSON');
+        }
+
+        // Populate datalist
+        Object.keys(regionLayers).sort().forEach(id => {
+            const option = document.createElement('option');
+            option.value = id;
+            idslsList.appendChild(option);
+        });
+        
+        // Jika data sudah dimuat, hitung statistik
+        if (allBusinessData.length > 0) {
+            hitungStatistikWilayah();
+        }
+    })
+    .catch(error => {
+        console.error('Error loading GeoJSON:', error);
+        hideLoading();
+    });
+
+// LOAD FIREBASE
+const dbRef = ref(db, 'tagging_usaha');
+onValue(dbRef, (snapshot) => {
+    if (isLoading) return;
+    isLoading = true;
+    
+    allBusinessData = [];
+    const kategoriSet = new Set();
+
+    snapshot.forEach((child) => {
+        const data = child.val();
+        if (data.latitude && data.longitude) {
+            allBusinessData.push(data);
+            kategoriSet.add(data.kategoriUsaha || "Lainnya");
         }
     });
+
+    updateFilterOptions(kategoriSet);
+    renderDisplay("Semua");
     
-    leftNav.addEventListener('mouseleave', function() {
-        const tooltip = document.getElementById('navTooltip');
-        if (tooltip) {
-            tooltip.style.opacity = '0';
-        }
+    // Hitung statistik dengan debounce
+    if (geojsonData) {
+        clearTimeout(window._statsTimeout);
+        window._statsTimeout = setTimeout(() => {
+            hitungStatistikWilayah();
+        }, 300);
+    } else {
+        hideLoading();
+    }
+    
+    isLoading = false;
+    isDataLoaded = true;
+}, (error) => {
+    console.error('Error loading data:', error);
+    isLoading = false;
+    hideLoading();
+});
+
+function updateFilterOptions(kategoriSet) {
+    filterKategori.innerHTML = '<option value="Semua">-- Semua Kategori --</option>';
+    Array.from(kategoriSet).sort().forEach(kat => {
+        const option = document.createElement('option');
+        option.value = kat;
+        option.textContent = kat;
+        filterKategori.appendChild(option);
     });
 }
 
-// ==================== INISIALISASI ====================
+// ==================== INIT ====================
 initNavigation();
 
-console.log('Dashboard siap!');
+console.log('🚀 Dashboard siap!');
 console.log('💡 Tips: Tekan Ctrl+B untuk toggle navigasi');
 console.log('📊 Menu Rekap: Kecamatan, SUB SLS, Pengawas, Pencacah');
+console.log('⚡ Optimasi performa aktif:');
+console.log('   - Marker Cluster dengan chunked loading');
+console.log('   - Spatial Index untuk point-in-polygon');
+console.log('   - Batch processing untuk statistik');
+console.log('   - Cache popup untuk performance');
